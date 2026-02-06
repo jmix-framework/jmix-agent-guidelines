@@ -114,7 +114,7 @@ Below are practical setup snippets per agent.
 
 #### OpenCode
 
-Add to your `~/.config/opencode/opencode.json` (local servers):
+Add to your `~/.config/opencode/opencode.json`:
 
 ```json
 {
