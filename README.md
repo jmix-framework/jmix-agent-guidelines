@@ -39,8 +39,9 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 
 \* At the time of writing, the location of Junie global skills directory is not clear. See [JUNIE-1422](https://youtrack.jetbrains.com/issue/JUNIE-1422).
 
-#### Example (using symlink for Claude Code):
+#### Example
 
+Using symlink for Claude Code:
 ```bash
 mkdir -p ~/.claude/skills
 ln -s /path/to/jmix-agent-guidelines/skills/* ~/.claude/skills/
@@ -61,11 +62,11 @@ The following two MCP servers help AI agents to build Jmix apps:
 
 - JetBrains (**highly recommended**): lets an external agent talk to a running IntelliJ IDEA to leverage code analysis and inspections.
 
-- Context7 (optional): gives the agent up‑to‑date, version‑specific docs and code examples from official sources.
+- Context7 (optional): gives the agent docs and code examples from official sources.
 
-To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server → Enable MCP Server ✓**.
+To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server** and select **Enable MCP Server ✓**.
 
-Below are practical setup snippets per agent. Adjust file paths to your environment if your client stores settings elsewhere.
+Below are practical setup snippets per agent.
 
 #### Claude Code
 
@@ -134,7 +135,7 @@ Add to your `~/.config/opencode/opencode.json` (local servers):
 
 #### Junie
 
-- JetBrains MCP: not required. Junie runs inside the IntelliJ IDE and already has native access to editor features the proxy exposes for external agents.
+- JetBrains MCP: not required. Junie runs inside the IntelliJ and already has native access to the IDE features.
 
 - Context7 MCP: 
   
