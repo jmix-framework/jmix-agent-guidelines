@@ -97,6 +97,8 @@ The following methods are frequently used in view controllers:
 - Always add `entity_lookup` and `entity_clear` actions to `entityPicker` components.
 - Always add `<properties><property name="openMode" value="DIALOG"/></properties>` to `list_create` and `list_edit` actions of `dataGrid` displaying a `@Composition` collection attribute.
 - Use `BeforeShowEvent` to trigger data loaders unless `auto="true"` is set in `dataLoadCoordinator`.
+- Use `dataLoader.load()` to refresh data in visual components.
+- Use handler methods with `@Subscribe`, `@Supply`, `@Install` annotations instead of programmatically adding event listeners and delegates.
 
 See usage examples in [references/examples.md](references/examples.md).
 
@@ -116,3 +118,4 @@ Jetbrains MCP catches many errors at design-time through Jmix Studio. To verify,
 - Business logic in view controllers (move to services)
 - EntityManager usage (use DataManager)
 - Direct database transactions
+- Use of `dataGrid.getDataProvider().refreshAll()` to refresh data in a dataGrid
