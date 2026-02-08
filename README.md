@@ -151,3 +151,25 @@ Add to your `~/.config/opencode/opencode.json`:
       }
     }  
     ```
+  
+### 4. Playwright Tests
+
+[Playwright](https://playwright.dev) integration provides AI agents with the ability to perform UI verification on a running application. This allows the agent to test navigation and complex UI behaviors directly in the browser.
+
+To enable Playwright support:
+
+- Install Playwright CLI globally:
+    ```bash
+    npm i -g @playwright/cli@latest
+    ```
+
+- Install Playwright skills:
+    ```bash
+    playwright-cli install --skills
+    ```
+    The command above creates Playwrite skills in the `.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
+
+Once set up, you can give the agent instructions like:
+
+> Run the app and use playwright skill to login and test all created views
+
