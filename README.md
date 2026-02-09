@@ -6,14 +6,17 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-- `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
-- `skills/`: A collection of folders, each containing:
-    - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
-    - Optional subdirectories with examples or other materials.
+- `v2/` contains the guidelines for Jmix 2.x.
+  - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
+  - `skills/`: A collection of folders, each containing:
+      - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
+      - Optional subdirectories with examples or other materials.
 
 ## How to Use
 
-To enable these guidelines for your AI agent, follow these steps:
+To enable these guidelines for your AI agent, follow the steps below. 
+
+Take the files from the `v2/` directory if you are using Jmix 2.x.
 
 ### 1. Project Guidelines
 
@@ -44,7 +47,7 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 Using symlink for Claude Code:
 ```bash
 mkdir -p ~/.claude/skills
-ln -s /path/to/jmix-agent-guidelines/skills/* ~/.claude/skills/
+ln -s /path/to/jmix-agent-guidelines/v2/skills/* ~/.claude/skills/
 ```
 
 #### Agent Conventions Summary
@@ -64,7 +67,7 @@ The following two MCP servers help AI agents to build Jmix apps:
 
 - Context7 (optional): gives the agent docs and code examples from official sources.
 
-To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server** and select **Enable MCP Server ✓**.
+To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server** and select **Enable MCP Server ✓**. When working with  a project, keep it open in the IDE.
 
 Below are practical setup snippets per agent.
 
