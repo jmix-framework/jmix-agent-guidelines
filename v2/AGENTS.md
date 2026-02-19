@@ -16,6 +16,21 @@ Technology Stack:
 - Relational database
 - Gradle build system
 
+### Project Structure
+
+Standard Gradle project layout with `src/main` and `src/test` directories. Java classes are placed in `src/main/java`, resources in `src/main/resources`.
+
+The codebase follows a modular organization under the base package:
+
+- `entity/` - Domain entities
+- `service/` - Business logic layer
+- `view/` - UI layer
+    - Each view has a Java controller and XML layout descriptor
+    - Views are organized by entity (client, order, etc.)
+- `security/` - Role-based access control with roles interfaces
+
+Tests are organized in packages by feature domain. The `test_support` package provides utilities for testing.
+
 ## Build & Run Commands
 
 ### Development
@@ -38,32 +53,9 @@ Technology Stack:
 ./gradlew test --tests "com.company.sample.order.OrderServiceTest.testOrderCalculations"
 ```
 
-## Architecture
-
-Standard Gradle project layout with `src/main` and `src/test` directories. Java classes are placed in `src/main/java`, resources in `src/main/resources`.
-
-### Package Structure
-
-The codebase follows a modular organization under the base package:
-
-- **`entity/`** - Domain entities
-- **`service/`** - Business logic layer
-- **`view/`** - UI layer
-    - Each view has a Java controller and XML layout descriptor
-    - Views are organized by entity (client, order, etc.)
-- **`security/`** - Role-based access control with roles interfaces
-
-### Testing Architecture
-
-Tests are organized in packages by feature domain. The `test_support` package provides utilities for testing.
-
-Prefer integration tests with `@SpringBootTest` for business logic and UI tests with `@UiTest`.
-
-Test database with automatic schema creation via Liquibase.
-
 ## Development Guidelines
 
-Refer to the relevant [Skills](#skills) for detailed implementation patterns.
+Refer to the relevant skills for detailed implementation patterns.
 
 ### Working with Entities
 
@@ -71,16 +63,19 @@ Refer to the relevant [Skills](#skills) for detailed implementation patterns.
 - Relationships: Use `@Composition` for parent-child aggregates
 - Computed properties: Use `@JmixProperty` with `@DependsOnProperties` for caching expensive calculations
 - No Lombok on entities
+- When asked to create entity:
+  - Java class with UUID + Version + InstanceName
+  - Liquibase changelog + include in `changelog.xml`
+  - Messages in ALL locale files (`messages.properties`, `messages_*.properties`)
 
 ### Working with Services
 
 - Injection: Use constructor injection, not field injection
-- [Data Access](#data-access)
 
 ### Data Access
 
-- Data access: Use `DataManager` (NOT `EntityManager`) and its fluent data loading interface for queries (see [Services Skill](ai/skills/jmix-services/SKILL.md))
-- Fetch plans: Build optimized FetchPlans to avoid N+1 queries (see [Fetch Plans Skill](ai/skills/jmix-fetch-plans/SKILL.md))
+- Data access: Use `DataManager` (NOT `EntityManager`) and its fluent data loading interface for queries (see jmix-services skill))
+- Fetch plans: Build optimized fetch plans to avoid N+1 queries (see jmix-fetch-plans skill))
 - Transactions: Annotate with `@Transactional` when needed
 
 ### Working with Views
@@ -88,6 +83,10 @@ Refer to the relevant [Skills](#skills) for detailed implementation patterns.
 - View descriptors: XML files in `src/main/resources/**/view/**`
 - Controllers: Java classes with `@ViewController` and `@ViewDescriptor` annotations, extend `StandardListView` / `StandardDetailView`
 - Navigation: Use `ViewNavigators` for programmatic navigation between views
+- When asked to create view:
+  - XML descriptor + Java controller
+  - Menu entry in `menu.xml`
+  - Messages for title/labels in ALL locale files
 
 ### Working with Security
 
@@ -103,7 +102,12 @@ Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
 - Include new changelogs to the main `changelog.xml`
 - Run automatically on application startup
 
-## Patterns
+### Tests
+
+- Prefer integration tests with `@SpringBootTest` for business logic and UI tests with `@UiTest`.
+- Test database with automatic schema creation via Liquibase.
+
+### Patterns
 
 - Business logic in services, not in views
 - Dependency Injection
@@ -111,25 +115,17 @@ Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
     - Views: `@Autowired` for Spring beans (DataManager, DialogWindows, etc.)
     - Services: Constructor injection only
 
-## When Asked to Create
+### Forbidden
 
-### Entity
+- Lombok on entities
+- Field `@Autowired` in services (use constructor injection)
+- EntityManager
+- Business logic in views
+- Edits in `frontend/generated/`
+- Hardcoded UI text — ALL labels, titles, buttons MUST use `msg://` keys
+- Single-locale messages — ALWAYS add to ALL locale files
 
-- Java class with UUID + Version + InstanceName
-- Liquibase changelog + include in `changelog.xml`
-- Messages in ALL locale files (`messages.properties`, `messages_*.properties`)
-
-### View
-
-- XML descriptor + Java controller
-- Menu entry in `menu.xml`
-- Messages for title/labels in ALL locale files
-
-### Role
-
-- `@ResourceRole` with entity/view/menu policies
-
-## Validation Checklist
+### Validation Checklist
 
 - Entity: UUID + Version + InstanceName present
 - Changelog added to `changelog.xml`
@@ -149,13 +145,3 @@ After writing or modifying code, validate using this sequence:
     - Verify data displays correctly
     - Click or do things that should trigger UI logic
     - Test CRUD operations
-
-## Forbidden
-
-- Lombok on entities
-- Field `@Autowired` in services (use constructor injection)
-- EntityManager
-- Business logic in views
-- Edits in `frontend/generated/`
-- Hardcoded UI text — ALL labels, titles, buttons MUST use `msg://` keys
-- Single-locale messages — ALWAYS add to ALL locale files
