@@ -25,7 +25,7 @@ Use this Skill when:
 - **Directory Structure**: Changelogs are stored in `src/main/resources/<base_package>/liquibase/`.
     - Main data store: `changelog/` directory.
     - Additional data stores: `<store>-changelog/` directories.
-    - Files are typically organized by date: `year/month/day-seq-random.xml`.
+    - Files are typically organized by date `year/month/day-time-description.xml` or in plain list `seq-description.xml`.
 - **Configuration**: The root changelog path is defined by the `main.liquibase.change-log` property (or `<store>.liquibase.change-log` for additional stores) in `application.properties`.
 - **Add-on Support**: Add-ons can contain their own Liquibase changelogs, which are executed before the application's changelogs.
 
@@ -53,6 +53,9 @@ Use this Skill when:
     - **Foreign Keys**: Defined via `<addForeignKeyConstraint>`. Use naming convention `FK_<TABLE>_<COLUMN>`.
     - **Indexes**: Defined via `<createIndex>`.
 - **Integration**:
+    - **Changelog Naming**:
+      - Use `seq-description.xml` name if the project contains only plain list of changelogs. For example: `030-customer.xml`.
+      - Use `year/month/day-time-description.xml` name (time in `HHmmss` format) if the project already contains the time-based structure. For example: `2026/02/19-105244-customer.xml`.
     - **Changelog Inclusion**: New files must be included in the root `changelog.xml` using `<include file="..." relativeToChangelogFile="true"/>`.
     - **Contexts**: Use `context="dev"` or similar to restrict changesets to specific deployment environments.
 

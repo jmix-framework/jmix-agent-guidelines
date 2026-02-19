@@ -98,7 +98,7 @@ Refer to the relevant skills for detailed implementation patterns.
 ### Database Migrations
 
 Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
-- Organized by step numbers (010, 020, 030, etc.)
+- Organized by step numbers (`010-some-description.xml`, `020-other-description.xml`, etc.) or in hieracrhical time-based structure (`2026/02/19-105244-customer.xml`, `2026/02/20-120315-order.xml`)
 - Include new changelogs to the main `changelog.xml`
 - Run automatically on application startup
 
@@ -124,6 +124,7 @@ Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
 - Edits in `frontend/generated/`
 - Hardcoded UI text — ALL labels, titles, buttons MUST use `msg://` keys
 - Single-locale messages — ALWAYS add to ALL locale files
+- Irrelevant edits: do not add blank lines at the end of edited files.
 
 ### Validation Checklist
 
