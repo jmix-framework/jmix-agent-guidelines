@@ -5,7 +5,7 @@ This file provides guidance to AI coding agents when working with code in this r
 ## Skills and MCP
 
 - For detailed guidance on specific Jmix features, ALWAYS use the Skill tool and available Jmix skills.
-- If you don't have enough information, use Context7 MCP to search for Jmix documentation and code samples.
+- Use Context7 jmix-framework/jmix-context7 library for Jmix reference information and code examples.
 - Use Jetbrains MCP to check file problems with `get_file_problems("path/to/file.ext", onlyErrors=false)`
 
 ## Project
