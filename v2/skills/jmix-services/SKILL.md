@@ -39,6 +39,7 @@ Use this Skill when:
     - Use `@Transactional` for declarative boundaries.
     - Use `TransactionTemplate` for programmatic control.
 - **Data Repositories**: Define interfaces extending `JmixDataRepository<Entity, ID>` for a Spring Data-like experience, with support for Jmix `FetchPlan`.
+- **Checking if entity is new**: Use `EntityStates.isNew(entity)` instead of checking whether the entity has an ID. New entities can already have generated IDs.
 
 See usage examples in [references/examples.md](references/examples.md).
 

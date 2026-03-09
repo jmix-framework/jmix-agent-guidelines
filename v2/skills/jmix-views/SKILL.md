@@ -99,6 +99,8 @@ The following methods are frequently used in view controllers:
 - Use `BeforeShowEvent` to trigger data loaders unless `auto="true"` is set in `dataLoadCoordinator`.
 - Use `dataLoader.load()` to refresh data in visual components.
 - Use handler methods with `@Subscribe`, `@Supply`, `@Install` annotations instead of programmatically adding event listeners and delegates.
+- Use `EntityStates.isNew(getEditedEntity())` in detail views to check if the entity is new instead of checking whether the entity has an ID. New entities can already have generated IDs.
+- Instantiate entities using `DataContext.create()` if you need to track new instances, otherwise use `Metadata.create()` or `DataManager.create()`.
 
 See usage examples in [references/examples.md](references/examples.md).
 

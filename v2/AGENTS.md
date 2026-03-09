@@ -67,6 +67,7 @@ Refer to the relevant skills for detailed implementation patterns.
   - Java class with UUID + Version + InstanceName
   - Liquibase changelog + include in `changelog.xml`
   - Messages in ALL locale files (`messages.properties`, `messages_*.properties`)
+- Instantiate entities using `Metadata.create()` or `DataManager.create()` depending on what is available in the class. Don't use entity constructor directly.
 
 ### Working with Services
 
@@ -118,13 +119,12 @@ Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
 ### Forbidden
 
 - Lombok on entities
-- Field `@Autowired` in services (use constructor injection)
+- Creating entity instances by constructor
 - EntityManager
 - Business logic in views
-- Edits in `frontend/generated/`
 - Hardcoded UI text — ALL labels, titles, buttons MUST use `msg://` keys
 - Single-locale messages — ALWAYS add to ALL locale files
-- Irrelevant edits: do not add blank lines at the end of edited files.
+- Edits in `frontend/generated/`
 
 ### Validation Checklist
 
