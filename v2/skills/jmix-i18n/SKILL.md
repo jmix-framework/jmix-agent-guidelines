@@ -1,6 +1,6 @@
 ---
 name: jmix-i18n
-description: Jmix message bundles (i18n/l10n). Use when adding messages and translations. Covers naming conventions, using messages in views.
+description: Jmix message bundles (i18n/l10n). Use when adding messages and translations. Covers naming conventions and using messages in Java and views XML.
 ---
 
 # Internationalization (i18n)
@@ -45,6 +45,10 @@ Use this Skill when:
     - Use `%s` (string) and `%d` (integer) for `formatMessage("key", params)` parameter placeholders (as in `java.util.Formatter`). NEVER use `${n}` placeholders.
 - **Bean Validation**:
     - Use `{msg://...}` syntax in validation annotations (e.g., `@Min(message = "{msg://...}", value = 14)`).
+- **Obtaining entity or attribute localized names in Java**:
+    - Inject `MessageTools` and `Metadata` beans.
+    - Use `messageTools.getEntityCaption(metadata.getClass(MyEntity.class))` to get the localized name of an entity.
+    - Use `messageTools.getPropertyCaption(metadata.getClass(MyEntity.class), "myProperty")` to get the localized name of an attribute.
 
 See usage examples in [references/examples.md](references/examples.md).
 
