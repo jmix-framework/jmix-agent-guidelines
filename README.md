@@ -87,6 +87,14 @@ Below are practical setup snippets per agent.
 
 - JetBrains MCP:
 
+  If you have IntelliJ IDEA 2026.1 or above, execute the following command to use Streamable HTTP connection:
+
+    ```bash
+    codex mcp add jetbrains --url http://localhost:64342/stream
+    ```
+
+  For an older IntelliJ IDEA version, follow the steps below to use STDIO connection.
+
   Open **Settings → Tools → MCP Server** and click **Copy Stdio Config** in **Manual Client Configuration** section. Paste the JSON into a text editor. You will see something like this:
 
     ```json
@@ -175,4 +183,3 @@ To enable Playwright support:
 Once set up, you can give the agent instructions like:
 
 > Run the app and use playwright skill to login and test all created views
-
