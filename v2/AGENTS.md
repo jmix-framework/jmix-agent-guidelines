@@ -12,7 +12,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 Technology Stack:
 - Java 17
-- Jmix 2.7 (Spring Boot 3, Vaadin Flow UI)
+- Jmix 2.8 (Spring Boot 3, Vaadin Flow UI)
 - Relational database
 - Gradle build system
 
