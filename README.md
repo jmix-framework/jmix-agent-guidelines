@@ -38,9 +38,7 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 | Claude Code | `~/.claude/skills/`          |
 | Codex       | `~/.codex/skills/`           |
 | OpenCode    | `~/.config/opencode/skills/` |
-| Junie       | `~/.junie/skills/` *         |
-
-\* At the time of writing, the location of Junie global skills directory is not clear. See [JUNIE-1422](https://youtrack.jetbrains.com/issue/JUNIE-1422).
+| Junie       | `~/.junie/skills/`           |
 
 #### Example
 
