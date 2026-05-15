@@ -40,6 +40,31 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 | OpenCode    | `~/.config/opencode/skills/` |
 | Junie       | `~/.junie/skills/`           |
 
+### Quick Install
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash
+```
+
+**Windows (PowerShell 5+):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
+```
+
+**Flags:**
+
+| Flag (bash)   | Flag (PowerShell) | Default | Meaning                                              |
+|:--------------|:------------------|:--------|:-----------------------------------------------------|
+| `--version N` | `-Version N`      | `2`     | Major guideline version. Reads `v<N>/skills/`.       |
+| `--ref REF`   | `-Ref REF`        | `main`  | Git ref (branch or tag) to download.                 |
+| `--no-claude` | `-NoClaude`       | off     | Skip `~/.claude/skills/`.                            |
+| `--no-codex`  | `-NoCodex`        | off     | Skip `~/.codex/skills/`.                             |
+
+> The quick install covers global skills only. For the project `AGENTS.md` / `CLAUDE.md` file, MCP servers, and Playwright setup, follow the manual steps in the [How to Use](#how-to-use) section below.
+
 #### Example
 
 Using symlink for Claude Code:
