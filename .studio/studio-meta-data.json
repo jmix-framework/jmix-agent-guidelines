@@ -1,0 +1,13 @@
+{
+  "skill-install": {
+    "windows": {
+      "command": "iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex"
+    },
+    "macos": {
+      "command": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash"
+    },
+    "linux": {
+      "command": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash"
+    }
+  }
+}
