@@ -13,8 +13,9 @@
 
 .PARAMETER Version
     Jmix version (e.g. 2, 2.8, 2.8.0). Optional. The script picks the
-    best-matching guideline folder: exact -> major.minor -> major. When
-    omitted or empty, the highest available major version (vN) is used.
+    best-matching guideline folder: exact -> major.minor -> major. If
+    none of these match, or when omitted/empty, the latest available
+    version is used (sorted by major, then minor, then patch).
 
 .PARAMETER Ref
     Git ref (branch or tag) to download. Default: main.
@@ -96,6 +97,42 @@ try {
         Write-ErrAndExit "extracted source directory not found in $staging"
     }
 
+    function Get-VersionSortKey {
+        param([string]$Version)
+        $parts = $Version -split '[.-]'
+        $key = ''
+        for ($i = 0; $i -lt 5; $i++) {
+            $segment = if ($i -lt $parts.Length) { $parts[$i] } else { '0' }
+            $value = 0
+            [void][int]::TryParse($segment, [ref]$value)
+            $key += $value.ToString('00000')
+        }
+        return $key
+    }
+
+    function Find-LatestSkillsDir {
+        param([string]$ExtractedDir)
+        $bestKey = $null
+        $bestPath = $null
+        foreach ($dir in Get-ChildItem -Path $ExtractedDir -Directory) {
+            if (-not $dir.Name.StartsWith('v')) { continue }
+            $skillsPath = Join-Path $dir.FullName 'skills'
+            if (-not (Test-Path $skillsPath -PathType Container)) { continue }
+            $version = $dir.Name.Substring(1)
+            if ([string]::IsNullOrEmpty($version)) { continue }
+            $key = Get-VersionSortKey -Version $version
+            if ($null -eq $bestKey -or [string]::Compare($key, $bestKey) -gt 0) {
+                $bestKey = $key
+                $bestPath = $skillsPath
+            }
+        }
+        return $bestPath
+    }
+
+    # Returns [PSCustomObject] with Path + Status:
+    #   Status = 'matched' (exact, major.minor, major, or no-version default)
+    #   Status = 'fallback' (requested version did not match any tier; latest used)
+    #   Status = 'none'    (no v*/skills dir exists)
     function Resolve-SkillsDir {
         param(
             [string]$ExtractedDir,
@@ -103,30 +140,26 @@ try {
         )
 
         if ([string]::IsNullOrWhiteSpace($Requested)) {
-            $best = $null
-            $bestNum = -1
-            foreach ($dir in Get-ChildItem -Path $ExtractedDir -Directory) {
-                if ($dir.Name -notmatch '^v(\d+)$') { continue }
-                $skillsPath = Join-Path $dir.FullName 'skills'
-                if (-not (Test-Path $skillsPath -PathType Container)) { continue }
-                $num = [int]$Matches[1]
-                if ($num -gt $bestNum) {
-                    $bestNum = $num
-                    $best = $skillsPath
-                }
+            $path = Find-LatestSkillsDir -ExtractedDir $ExtractedDir
+            if ($path) {
+                return [PSCustomObject]@{ Path = $path; Status = 'matched' }
             }
-            return $best
+            return [PSCustomObject]@{ Path = $null; Status = 'none' }
         }
 
         $exact = Join-Path $ExtractedDir "v$Requested/skills"
-        if (Test-Path $exact -PathType Container) { return $exact }
+        if (Test-Path $exact -PathType Container) {
+            return [PSCustomObject]@{ Path = $exact; Status = 'matched' }
+        }
 
         $parts = $Requested -split '[.-]'
         if ($parts.Length -ge 2 -and $parts[0] -ne '' -and $parts[1] -ne '') {
             $majorMinor = "$($parts[0]).$($parts[1])"
             if ($majorMinor -ne $Requested) {
                 $candidate = Join-Path $ExtractedDir "v$majorMinor/skills"
-                if (Test-Path $candidate -PathType Container) { return $candidate }
+                if (Test-Path $candidate -PathType Container) {
+                    return [PSCustomObject]@{ Path = $candidate; Status = 'matched' }
+                }
             }
         }
 
@@ -134,23 +167,30 @@ try {
             $major = $parts[0]
             if ($major -ne $Requested) {
                 $candidate = Join-Path $ExtractedDir "v$major/skills"
-                if (Test-Path $candidate -PathType Container) { return $candidate }
+                if (Test-Path $candidate -PathType Container) {
+                    return [PSCustomObject]@{ Path = $candidate; Status = 'matched' }
+                }
             }
         }
 
-        return $null
-    }
-
-    $sourceSkillsDir = Resolve-SkillsDir -ExtractedDir $extractedDir.FullName -Requested $Version
-    if (-not $sourceSkillsDir) {
-        $available = (Get-ChildItem -Path $extractedDir.FullName -Directory | Select-Object -ExpandProperty Name) -join ' '
-        if ([string]::IsNullOrWhiteSpace($Version)) {
-            Write-ErrAndExit "no v<N>/skills/ directory found in $Ref. Available top-level entries: $available"
-        } else {
-            Write-ErrAndExit "no guideline folder matches version '$Version' in $Ref. Tried exact, major.minor, major. Available top-level entries: $available"
+        $fallback = Find-LatestSkillsDir -ExtractedDir $ExtractedDir
+        if ($fallback) {
+            return [PSCustomObject]@{ Path = $fallback; Status = 'fallback' }
         }
+        return [PSCustomObject]@{ Path = $null; Status = 'none' }
     }
 
+    $resolved = Resolve-SkillsDir -ExtractedDir $extractedDir.FullName -Requested $Version
+    if ($resolved.Status -eq 'none' -or -not $resolved.Path) {
+        $available = (Get-ChildItem -Path $extractedDir.FullName -Directory | Select-Object -ExpandProperty Name) -join ' '
+        Write-ErrAndExit "no v*/skills directory found in $Ref. Available top-level entries: $available"
+    }
+
+    $sourceSkillsDir = $resolved.Path
+    $resolvedVersionDir = Split-Path -Leaf (Split-Path -Parent $sourceSkillsDir)
+    if ($resolved.Status -eq 'fallback') {
+        Write-Info "Version '$Version' did not match any folder, falling back to latest available ($resolvedVersionDir)"
+    }
     Write-Info "Using guidelines from $($sourceSkillsDir.Substring($extractedDir.FullName.Length + 1))"
 
     $script:sourceSkillsDir = $sourceSkillsDir

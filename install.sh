@@ -25,8 +25,10 @@ Usage:
 
 Flags:
   --version V      Jmix version (e.g. 2, 2.8, 2.8.0). Optional. The script picks
-                   the best-matching guideline folder: exact -> major.minor -> major.
-                   When omitted, the highest available major version (vN) is used.
+                   the best-matching guideline folder: exact -> major.minor ->
+                   major. If none of these match, or when the flag is omitted /
+                   empty, the latest available version is used (sorted by
+                   major, then minor, then patch).
   --ref REF        Git ref to download (default: main).
   --no-claude      Skip installing into ~/.claude/skills.
   --no-codex       Skip installing into ~/.codex/skills.
@@ -115,28 +117,48 @@ tar -xzf "$TARBALL_PATH" -C "$STAGING"
 EXTRACTED_DIR="$(find "$STAGING" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
 [ -n "$EXTRACTED_DIR" ] || die "extracted source directory not found in ${STAGING}"
 
+version_sort_key() {
+    printf '%s' "$1" | awk -F'[.-]' '{
+        for (i = 1; i <= 5; i++) {
+            v = (i <= NF) ? $i : 0
+            if (v ~ /^[0-9]+$/) printf "%05d", v
+            else printf "%05d", 0
+        }
+        print ""
+    }'
+}
+
+find_latest_skills_dir() {
+    extracted="$1"
+    best_key=""
+    best_path=""
+    for dir in "$extracted"/v*/; do
+        [ -d "${dir}skills" ] || continue
+        name="${dir%/}"
+        name="${name##*/v}"
+        [ -n "$name" ] || continue
+        key="$(version_sort_key "$name")"
+        if [ -z "$best_key" ] || [ "$key" \> "$best_key" ]; then
+            best_key="$key"
+            best_path="${dir}skills"
+        fi
+    done
+    [ -n "$best_path" ] || return 1
+    printf '%s\n' "$best_path"
+}
+
+# Prints resolved skills dir on success.
+# Exit codes:
+#   0 - matched (exact, major.minor, major, or no-version default)
+#   2 - fallback used (requested version didn't match any tier)
+#   1 - no v*/skills dir present at all
 resolve_skills_dir() {
     extracted="$1"
     requested="$2"
 
     if [ -z "$requested" ]; then
-        best=""
-        best_num=-1
-        for dir in "$extracted"/v*/; do
-            [ -d "${dir}skills" ] || continue
-            name="${dir%/}"
-            name="${name##*/v}"
-            case "$name" in
-                ''|*[!0-9]*) continue ;;
-            esac
-            if [ "$name" -gt "$best_num" ]; then
-                best_num="$name"
-                best="${dir}skills"
-            fi
-        done
-        [ -n "$best" ] || return 1
-        printf '%s\n' "$best"
-        return 0
+        find_latest_skills_dir "$extracted"
+        return $?
     fi
 
     if [ -d "${extracted}/v${requested}/skills" ]; then
@@ -156,19 +178,22 @@ resolve_skills_dir() {
         return 0
     fi
 
-    return 1
+    fallback_path="$(find_latest_skills_dir "$extracted")" || return 1
+    printf '%s\n' "$fallback_path"
+    return 2
 }
 
-SOURCE_SKILLS_DIR="$(resolve_skills_dir "$EXTRACTED_DIR" "$VERSION" || true)"
-if [ -z "$SOURCE_SKILLS_DIR" ]; then
+RESOLVE_STATUS=0
+SOURCE_SKILLS_DIR="$(resolve_skills_dir "$EXTRACTED_DIR" "$VERSION")" || RESOLVE_STATUS=$?
+if [ "$RESOLVE_STATUS" -eq 1 ] || [ -z "$SOURCE_SKILLS_DIR" ]; then
     AVAILABLE="$(find "$EXTRACTED_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | tr '\n' ' ')"
-    if [ -z "$VERSION" ]; then
-        die "no v<N>/skills/ directory found in ${REF}. Available top-level entries: ${AVAILABLE}"
-    else
-        die "no guideline folder matches version '${VERSION}' in ${REF}. Tried exact, major.minor, major. Available top-level entries: ${AVAILABLE}"
-    fi
+    die "no v*/skills directory found in ${REF}. Available top-level entries: ${AVAILABLE}"
 fi
 
+RESOLVED_VERSION_DIR="$(basename "$(dirname "$SOURCE_SKILLS_DIR")")"
+if [ "$RESOLVE_STATUS" -eq 2 ]; then
+    log "Version '${VERSION}' did not match any folder, falling back to latest available (${RESOLVED_VERSION_DIR})"
+fi
 log "Using guidelines from ${SOURCE_SKILLS_DIR#${EXTRACTED_DIR}/}"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
