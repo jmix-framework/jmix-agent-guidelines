@@ -56,12 +56,12 @@ iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines
 
 **Flags:**
 
-| Flag (bash)   | Flag (PowerShell) | Default | Meaning                                              |
-|:--------------|:------------------|:--------|:-----------------------------------------------------|
-| `--version N` | `-Version N`      | `2`     | Major guideline version. Reads `v<N>/skills/`.       |
-| `--ref REF`   | `-Ref REF`        | `main`  | Git ref (branch or tag) to download.                 |
-| `--no-claude` | `-NoClaude`       | off     | Skip `~/.claude/skills/`.                            |
-| `--no-codex`  | `-NoCodex`        | off     | Skip `~/.codex/skills/`.                             |
+| Flag (bash)       | Flag (PowerShell) | Default | Meaning                              |
+|:------------------|:------------------|:--------|:-------------------------------------|
+| `--version x.y.z` | `-Version x.y.z`  | ``      | Jmix version.                        |
+| `--ref REF`       | `-Ref REF`        | `main`  | Git ref (branch or tag) to download. |
+| `--no-claude`     | `-NoClaude`       | off     | Skip `~/.claude/skills/`.            |
+| `--no-codex`      | `-NoCodex`        | off     | Skip `~/.codex/skills/`.             |
 
 > The quick install covers global skills only. For the project `AGENTS.md` / `CLAUDE.md` file, MCP servers, and Playwright setup, follow the manual steps in the [How to Use](#how-to-use) section below.
 

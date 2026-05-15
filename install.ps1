@@ -12,7 +12,9 @@
     being overwritten.
 
 .PARAMETER Version
-    Major guideline version. Default: 2. Reads v<Version>/skills/ from repo.
+    Jmix version (e.g. 2, 2.8, 2.8.0). Optional. The script picks the
+    best-matching guideline folder: exact -> major.minor -> major. When
+    omitted or empty, the highest available major version (vN) is used.
 
 .PARAMETER Ref
     Git ref (branch or tag) to download. Default: main.
@@ -37,7 +39,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = '2',
+    [string]$Version = '',
     [string]$Ref = 'main',
     [switch]$NoClaude,
     [switch]$NoCodex,
@@ -94,11 +96,62 @@ try {
         Write-ErrAndExit "extracted source directory not found in $staging"
     }
 
-    $sourceSkillsDir = Join-Path $extractedDir.FullName "v$Version/skills"
-    if (-not (Test-Path $sourceSkillsDir -PathType Container)) {
-        $available = (Get-ChildItem -Path $extractedDir.FullName -Directory | Select-Object -ExpandProperty Name) -join ' '
-        Write-ErrAndExit "v$Version/skills/ not found in $Ref. Available top-level entries: $available"
+    function Resolve-SkillsDir {
+        param(
+            [string]$ExtractedDir,
+            [string]$Requested
+        )
+
+        if ([string]::IsNullOrWhiteSpace($Requested)) {
+            $best = $null
+            $bestNum = -1
+            foreach ($dir in Get-ChildItem -Path $ExtractedDir -Directory) {
+                if ($dir.Name -notmatch '^v(\d+)$') { continue }
+                $skillsPath = Join-Path $dir.FullName 'skills'
+                if (-not (Test-Path $skillsPath -PathType Container)) { continue }
+                $num = [int]$Matches[1]
+                if ($num -gt $bestNum) {
+                    $bestNum = $num
+                    $best = $skillsPath
+                }
+            }
+            return $best
+        }
+
+        $exact = Join-Path $ExtractedDir "v$Requested/skills"
+        if (Test-Path $exact -PathType Container) { return $exact }
+
+        $parts = $Requested -split '[.-]'
+        if ($parts.Length -ge 2 -and $parts[0] -ne '' -and $parts[1] -ne '') {
+            $majorMinor = "$($parts[0]).$($parts[1])"
+            if ($majorMinor -ne $Requested) {
+                $candidate = Join-Path $ExtractedDir "v$majorMinor/skills"
+                if (Test-Path $candidate -PathType Container) { return $candidate }
+            }
+        }
+
+        if ($parts.Length -ge 1 -and $parts[0] -ne '') {
+            $major = $parts[0]
+            if ($major -ne $Requested) {
+                $candidate = Join-Path $ExtractedDir "v$major/skills"
+                if (Test-Path $candidate -PathType Container) { return $candidate }
+            }
+        }
+
+        return $null
     }
+
+    $sourceSkillsDir = Resolve-SkillsDir -ExtractedDir $extractedDir.FullName -Requested $Version
+    if (-not $sourceSkillsDir) {
+        $available = (Get-ChildItem -Path $extractedDir.FullName -Directory | Select-Object -ExpandProperty Name) -join ' '
+        if ([string]::IsNullOrWhiteSpace($Version)) {
+            Write-ErrAndExit "no v<N>/skills/ directory found in $Ref. Available top-level entries: $available"
+        } else {
+            Write-ErrAndExit "no guideline folder matches version '$Version' in $Ref. Tried exact, major.minor, major. Available top-level entries: $available"
+        }
+    }
+
+    Write-Info "Using guidelines from $($sourceSkillsDir.Substring($extractedDir.FullName.Length + 1))"
 
     $script:sourceSkillsDir = $sourceSkillsDir
     $script:timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')

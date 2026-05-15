@@ -9,7 +9,7 @@ set -euo pipefail
 
 REPO_OWNER="jmix-framework"
 REPO_NAME="jmix-agent-guidelines"
-VERSION="2"
+VERSION=""
 REF="main"
 INSTALL_CLAUDE=1
 INSTALL_CODEX=1
@@ -21,10 +21,12 @@ usage() {
 Installs Jmix agent skills into global skills directories.
 
 Usage:
-  install.sh [--version N] [--ref REF] [--no-claude] [--no-codex] [--no-opencode] [--no-junie]
+  install.sh [--version V] [--ref REF] [--no-claude] [--no-codex] [--no-opencode] [--no-junie]
 
 Flags:
-  --version N      Major guideline version (default: 2). Reads v<N>/skills/ from repo.
+  --version V      Jmix version (e.g. 2, 2.8, 2.8.0). Optional. The script picks
+                   the best-matching guideline folder: exact -> major.minor -> major.
+                   When omitted, the highest available major version (vN) is used.
   --ref REF        Git ref to download (default: main).
   --no-claude      Skip installing into ~/.claude/skills.
   --no-codex       Skip installing into ~/.codex/skills.
@@ -113,11 +115,61 @@ tar -xzf "$TARBALL_PATH" -C "$STAGING"
 EXTRACTED_DIR="$(find "$STAGING" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
 [ -n "$EXTRACTED_DIR" ] || die "extracted source directory not found in ${STAGING}"
 
-SOURCE_SKILLS_DIR="${EXTRACTED_DIR}/v${VERSION}/skills"
-if [ ! -d "$SOURCE_SKILLS_DIR" ]; then
+resolve_skills_dir() {
+    extracted="$1"
+    requested="$2"
+
+    if [ -z "$requested" ]; then
+        best=""
+        best_num=-1
+        for dir in "$extracted"/v*/; do
+            [ -d "${dir}skills" ] || continue
+            name="${dir%/}"
+            name="${name##*/v}"
+            case "$name" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            if [ "$name" -gt "$best_num" ]; then
+                best_num="$name"
+                best="${dir}skills"
+            fi
+        done
+        [ -n "$best" ] || return 1
+        printf '%s\n' "$best"
+        return 0
+    fi
+
+    if [ -d "${extracted}/v${requested}/skills" ]; then
+        printf '%s\n' "${extracted}/v${requested}/skills"
+        return 0
+    fi
+
+    major_minor="$(printf '%s' "$requested" | awk -F'[.-]' '{ if (NF >= 2 && $1 != "" && $2 != "") print $1"."$2 }')"
+    if [ -n "$major_minor" ] && [ "$major_minor" != "$requested" ] && [ -d "${extracted}/v${major_minor}/skills" ]; then
+        printf '%s\n' "${extracted}/v${major_minor}/skills"
+        return 0
+    fi
+
+    major="$(printf '%s' "$requested" | awk -F'[.-]' '{print $1}')"
+    if [ -n "$major" ] && [ "$major" != "$requested" ] && [ -d "${extracted}/v${major}/skills" ]; then
+        printf '%s\n' "${extracted}/v${major}/skills"
+        return 0
+    fi
+
+    return 1
+}
+
+SOURCE_SKILLS_DIR="$(resolve_skills_dir "$EXTRACTED_DIR" "$VERSION" || true)"
+if [ -z "$SOURCE_SKILLS_DIR" ]; then
     AVAILABLE="$(find "$EXTRACTED_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | tr '\n' ' ')"
-    die "v${VERSION}/skills/ not found in ${REF}. Available top-level entries: ${AVAILABLE}"
+    if [ -z "$VERSION" ]; then
+        die "no v<N>/skills/ directory found in ${REF}. Available top-level entries: ${AVAILABLE}"
+    else
+        die "no guideline folder matches version '${VERSION}' in ${REF}. Tried exact, major.minor, major. Available top-level entries: ${AVAILABLE}"
+    fi
 fi
+
+log "Using guidelines from ${SOURCE_SKILLS_DIR#${EXTRACTED_DIR}/}"
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
