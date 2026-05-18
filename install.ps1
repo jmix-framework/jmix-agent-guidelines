@@ -17,6 +17,9 @@
       install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
       install.ps1 playwright    -Agents CSV   # requires npm on PATH
 
+    Add -BackupExistingFiles to any subcommand to rename overwritten files/dirs
+    to <name>.bak-<timestamp> instead of deleting them.
+
 .PARAMETER Subcommand
     Optional subcommand. When omitted, the interactive wizard is started.
 
@@ -35,6 +38,11 @@
 .PARAMETER Context7Key
     Context7 API key (mcp-context7). Prompted interactively when missing.
 
+.PARAMETER BackupExistingFiles
+    When set, an existing destination file or folder is renamed to
+    <name>.bak-<timestamp> instead of being deleted before the new content is
+    copied. Off by default.
+
 .EXAMPLE
     iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
 
@@ -48,7 +56,8 @@ param(
     [string]$Version = '',
     [string]$Ref = 'main',
     [string]$Agents = '',
-    [string]$Context7Key = ''
+    [string]$Context7Key = '',
+    [switch]$BackupExistingFiles
 )
 
 $ErrorActionPreference = 'Stop'
@@ -122,6 +131,31 @@ function Get-AgentLabel {
         'opencode' { 'OpenCode' }
         'junie'    { 'Junie' }
         default    { $Agent }
+    }
+}
+
+function Write-Dest {
+    param(
+        [string]$Src,
+        [string]$Dest,
+        [string]$Label
+    )
+    $existed = Test-Path $Dest
+    $backupInfo = ''
+    if ($existed) {
+        if ($BackupExistingFiles) {
+            $backupName = "$([System.IO.Path]::GetFileName($Dest)).bak-$($script:Timestamp)"
+            Rename-Item -Path $Dest -NewName $backupName -ErrorAction Stop
+            $backupInfo = " (backup: $backupName)"
+        } else {
+            Remove-Item -Path $Dest -Recurse -Force -ErrorAction Stop
+        }
+    }
+    Copy-Item -Path $Src -Destination $Dest -Recurse -Force -ErrorAction Stop
+    if ($existed) {
+        Write-Info "  Updated: $Label$backupInfo"
+    } else {
+        Write-Info "  Installed: $Label"
     }
 }
 
@@ -309,15 +343,7 @@ function Install-SkillsForAgent {
     $count = 0
     foreach ($skill in Get-ChildItem -Path $script:SourceSkillsDir -Directory) {
         $dest = Join-Path $target $skill.Name
-        $backupName = "$($skill.Name).bak-$($script:Timestamp)"
-        if (Test-Path $dest) {
-            Rename-Item -Path $dest -NewName $backupName -ErrorAction Stop
-            Copy-Item -Path $skill.FullName -Destination $dest -Recurse -Force -ErrorAction Stop
-            Write-Info "  Updated: $($skill.Name) (backup: $backupName)"
-        } else {
-            Copy-Item -Path $skill.FullName -Destination $dest -Recurse -Force -ErrorAction Stop
-            Write-Info "  Installed: $($skill.Name)"
-        }
+        Write-Dest -Src $skill.FullName -Dest $dest -Label $skill.Name
         $count++
     }
     Write-Info "  $count skill(s) processed for $label"
@@ -363,15 +389,7 @@ function Install-AgentsMdFor {
         New-Item -ItemType Directory -Path $destDir -Force | Out-Null
     }
 
-    if (Test-Path $dest) {
-        $backup = "$dest.bak-$($script:Timestamp)"
-        Rename-Item -Path $dest -NewName (Split-Path -Leaf $backup) -ErrorAction Stop
-        Copy-Item -Path $script:SourceAgentsMd -Destination $dest -Force -ErrorAction Stop
-        Write-Info "  Updated: $dest (backup: $(Split-Path -Leaf $backup))"
-    } else {
-        Copy-Item -Path $script:SourceAgentsMd -Destination $dest -Force -ErrorAction Stop
-        Write-Info "  Installed: $dest"
-    }
+    Write-Dest -Src $script:SourceAgentsMd -Dest $dest -Label $dest
     Write-Info "  Project guidelines installed for $label"
 }
 
@@ -583,15 +601,7 @@ function Install-PlaywrightForAgents {
             $src = Join-Path $claudeSkills $skill
             if (-not (Test-Path $src)) { continue }
             $dest = Join-Path $target $skill
-            if (Test-Path $dest) {
-                $backupName = "$skill.bak-$($script:Timestamp)"
-                Rename-Item -Path $dest -NewName $backupName -ErrorAction Stop
-                Copy-Item -Path $src -Destination $dest -Recurse -Force -ErrorAction Stop
-                Write-Info "  Updated: $dest (backup: $backupName)"
-            } else {
-                Copy-Item -Path $src -Destination $dest -Recurse -Force -ErrorAction Stop
-                Write-Info "  Installed: $dest"
-            }
+            Write-Dest -Src $src -Dest $dest -Label $dest
         }
     }
 

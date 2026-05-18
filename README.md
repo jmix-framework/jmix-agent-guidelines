@@ -45,16 +45,17 @@ install.sh playwright    --agents CSV   # requires npm on PATH
 
 PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `install.ps1 mcp-context7 -Agents claude -Context7Key KEY`, `install.ps1 playwright -Agents claude,codex`, etc.
 
-**CSV** = comma-separated agent list (e.g. `claude,codex`) or a single value (e.g. `claude`). Valid agents: `claude`, `codex`, `opencode`, `junie`.
+**CSV** = comma-separated agent list (e.g. `claude,codex`) or a single value (e.g. `claude`).
 
 ### Flags
 
-| Flag (bash)        | Flag (PowerShell) | Default | Meaning                                                 |
-|:-------------------|:------------------|:--------|:--------------------------------------------------------|
-| `--version V`      | `-Version V`      | latest  | Jmix version. Picks the best-matching `v*` folder.      |
-| `--ref REF`        | `-Ref REF`        | `main`  | Git ref (branch or tag) of this repository to download. |
-| `--agents CSV`     | `-Agents CSV`     | -       | Comma-separated agents. Required by every subcommand.   |
-| `--context7-key K` | `-Context7Key K`  | prompt  | Context7 API key. Prompted interactively when omitted.  |
+| Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                      |
+|:--------------------------|:-----------------------|:--------|:-------------------------------------------------------------------------------------------------------------|
+| `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                           |
+| `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                      |
+| `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                        |
+| `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                       |
+| `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.          |
 
 > The automatic installer covers global skills, project guidelines, MCP server registration, and Playwright testing skills. The Playwright step shells out to `npm` and `playwright-cli`, so both must be available on PATH.
 

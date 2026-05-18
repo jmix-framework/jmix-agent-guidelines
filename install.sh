@@ -24,6 +24,7 @@ TARBALL_READY=0
 
 VERSION=""
 REF="main"
+BACKUP_EXISTING=0
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
@@ -50,6 +51,36 @@ die() {
 
 require_tool() {
     command -v "$1" >/dev/null 2>&1 || die "$1 not found. Install it and re-run."
+}
+
+# Replaces or installs $dest with a copy of $src. When BACKUP_EXISTING=1, an
+# existing $dest is moved aside to <dest>.bak-<timestamp>; otherwise it is
+# deleted. Prints a per-item log line.
+# $1 - src path (file or dir)
+# $2 - dest path
+# $3 - short label shown in the log line
+write_dest() {
+    local src="$1"
+    local dest="$2"
+    local label="$3"
+    local existed=0
+    [ -e "$dest" ] && existed=1
+    local backup_info=""
+    if [ "$existed" -eq 1 ]; then
+        if [ "$BACKUP_EXISTING" -eq 1 ]; then
+            local backup="${dest}.bak-${TIMESTAMP}"
+            mv "$dest" "$backup" || die "cannot rename ${dest}"
+            backup_info=" (backup: $(basename "$backup"))"
+        else
+            rm -rf "$dest" || die "cannot remove ${dest}"
+        fi
+    fi
+    cp -R "$src" "$dest" || die "cannot copy to ${dest}"
+    if [ "$existed" -eq 1 ]; then
+        log "  Updated: ${label}${backup_info}"
+    else
+        log "  Installed: ${label}"
+    fi
 }
 
 # Parses a comma-separated agents list. Single value (e.g. "claude") is allowed.
@@ -128,13 +159,18 @@ Usage:
   install.sh playwright    [options]                             # install Playwright testing skills
 
 Common options:
-  --version V        Jmix version (e.g. 2.8.0). Optional. Best-matching folder
-                     is picked: exact -> major.minor -> major -> latest.
-  --ref REF          Git ref to download (default: main).
-  --agents CSV       Comma-separated agent list. Accepts a single value too
-                     (e.g. "claude" or "claude,codex"). Required by every
-                     subcommand. Valid values: claude, codex, opencode, junie.
-  -h, --help         Show this help.
+  --version V                Jmix version (e.g. 2.8.0). Optional. Best-matching
+                             folder is picked: exact -> major.minor -> major ->
+                             latest.
+  --ref REF                  Git ref to download (default: main).
+  --agents CSV               Comma-separated agent list. Accepts a single value
+                             too (e.g. "claude" or "claude,codex"). Required by
+                             every subcommand. Valid values:
+                             claude, codex, opencode, junie.
+  --backup-existing-files    Rename overwritten files/dirs to
+                             <name>.bak-<timestamp> instead of deleting them.
+                             Off by default.
+  -h, --help                 Show this help.
 
 mcp-context7 options:
   --context7-key K   Context7 API key. Prompted interactively when missing.
@@ -298,20 +334,12 @@ install_skills_for_agent() {
     mkdir -p "$target_dir" || die "cannot write to ${target_dir}: mkdir failed"
 
     local count=0
-    local skill name dest backup
+    local skill name dest
     for skill in "$SOURCE_SKILLS_DIR"/*/; do
         [ -d "$skill" ] || continue
         name="$(basename "$skill")"
         dest="${target_dir}/${name}"
-        if [ -e "$dest" ]; then
-            backup="${dest}.bak-${TIMESTAMP}"
-            mv "$dest" "$backup" || die "cannot write to ${dest}: rename failed"
-            cp -R "$skill" "$dest" || die "cannot write to ${dest}: copy failed"
-            log "  Updated: ${name} (backup: $(basename "$backup"))"
-        else
-            cp -R "$skill" "$dest" || die "cannot write to ${dest}: copy failed"
-            log "  Installed: ${name}"
-        fi
+        write_dest "$skill" "$dest" "$name"
         count=$((count + 1))
     done
     log "  ${count} skill(s) processed for ${label}"
@@ -325,6 +353,8 @@ cmd_skills() {
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
                 VERSION="$2"; shift 2 ;;
@@ -379,15 +409,7 @@ install_agents_md_for() {
     dest_dir="$(dirname "$dest")"
     mkdir -p "$dest_dir" || die "cannot create directory ${dest_dir}"
 
-    if [ -e "$dest" ]; then
-        local backup="${dest}.bak-${TIMESTAMP}"
-        mv "$dest" "$backup" || die "cannot rename existing ${dest}"
-        cp "$SOURCE_AGENTS_MD" "$dest" || die "cannot write ${dest}"
-        log "  Updated: ${dest} (backup: $(basename "$backup"))"
-    else
-        cp "$SOURCE_AGENTS_MD" "$dest" || die "cannot write ${dest}"
-        log "  Installed: ${dest}"
-    fi
+    write_dest "$SOURCE_AGENTS_MD" "$dest" "$dest"
     log "  Project guidelines installed for ${label}"
 }
 
@@ -399,6 +421,8 @@ cmd_agents_md() {
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
                 VERSION="$2"; shift 2 ;;
@@ -491,6 +515,8 @@ cmd_mcp_jetbrains() {
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
@@ -591,6 +617,8 @@ cmd_mcp_context7() {
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             --context7-key)
                 [ $# -ge 2 ] || die "--context7-key requires an argument"
                 key="$2"; shift 2 ;;
@@ -625,6 +653,8 @@ cmd_playwright() {
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
@@ -661,7 +691,7 @@ cmd_playwright() {
     fi
 
     # Replicate the newly-installed skills to the other selected agents.
-    local agent target dest backup skill
+    local agent target dest skill
     for agent in $agents; do
         [ "$agent" = "claude" ] && continue
         target="$(skills_target_for_agent "$agent")"
@@ -669,15 +699,7 @@ cmd_playwright() {
         for skill in $new_skills; do
             [ -d "${claude_skills}/${skill}" ] || continue
             dest="${target}/${skill}"
-            if [ -e "$dest" ]; then
-                backup="${dest}.bak-${TIMESTAMP}"
-                mv "$dest" "$backup" || die "cannot rename ${dest}"
-                cp -R "${claude_skills}/${skill}" "$dest" || die "cannot copy to ${dest}"
-                log "  Updated: ${dest} (backup: $(basename "$backup"))"
-            else
-                cp -R "${claude_skills}/${skill}" "$dest" || die "cannot copy to ${dest}"
-                log "  Installed: ${dest}"
-            fi
+            write_dest "${claude_skills}/${skill}" "$dest" "$dest"
         done
     done
 
@@ -743,6 +765,8 @@ cmd_wizard() {
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
                 REF="$2"; shift 2 ;;
+            --backup-existing-files)
+                BACKUP_EXISTING=1; shift ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
