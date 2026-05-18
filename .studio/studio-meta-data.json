@@ -5,16 +5,12 @@
         "message": "Configure AI agents for Jmix",
         "options": [
           {
-            "label": "Start setup",
+            "label": "Configure via Jmix CLI script",
             "command": {
               "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) -Version \"${JMIX_VERSION}\"",
-              "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\"",
-              "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\""
+              "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash --version \"${JMIX_VERSION}\"",
+              "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash --version \"${JMIX_VERSION}\""
             }
-          },
-          {
-            "label": "Skip",
-            "skip": true
           }
         ]
       }
