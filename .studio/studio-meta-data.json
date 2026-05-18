@@ -1,13 +1,23 @@
 {
-  "skill-install": {
-    "windows": {
-      "command": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) -Version \"${JMIX_VERSION}\""
-    },
-    "macos": {
-      "command": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\""
-    },
-    "linux": {
-      "command": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\""
-    }
+  "install-flow": {
+    "steps": [
+      {
+        "message": "Configure AI agents for Jmix",
+        "options": [
+          {
+            "label": "Start setup",
+            "command": {
+              "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) -Version \"${JMIX_VERSION}\"",
+              "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\"",
+              "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- --version \"${JMIX_VERSION}\""
+            }
+          },
+          {
+            "label": "Skip",
+            "skip": true
+          }
+        ]
+      }
+    ]
   }
 }
