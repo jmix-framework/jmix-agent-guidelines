@@ -11,10 +11,11 @@
       4. Registering the Context7 MCP server with the agent.
 
     Subcommands are available for non-interactive use:
-      install.ps1 skills        [-All | -Agent NAME] [-Version V] [-Ref REF]
-      install.ps1 agents-md     [-All | -Agent NAME] [-Version V] [-Ref REF]
-      install.ps1 mcp-jetbrains [-All | -Agent NAME]
-      install.ps1 mcp-context7  [-All | -Agent NAME] [-Key KEY]
+      install.ps1 skills        -Agents CSV [-Version V] [-Ref REF]
+      install.ps1 agents-md     -Agents CSV [-Version V] [-Ref REF]
+      install.ps1 mcp-jetbrains -Agents CSV
+      install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
+      install.ps1 playwright    -Agents CSV   # requires npm on PATH
 
 .PARAMETER Subcommand
     Optional subcommand. When omitted, the interactive wizard is started.
@@ -26,30 +27,13 @@
 .PARAMETER Ref
     Git ref (branch or tag) to download. Default: main.
 
-.PARAMETER Agent
-    Single agent target: claude, codex, opencode, or junie.
-
 .PARAMETER Agents
-    Comma-separated list of agents (e.g. "claude,codex"). Mutually exclusive
-    with -Agent and -All.
+    Comma-separated list of agents (e.g. "claude,codex"). Single value is also
+    accepted (e.g. "claude"). Required by every subcommand. Valid values:
+    claude, codex, opencode, junie.
 
-.PARAMETER All
-    Apply the subcommand to every supported agent.
-
-.PARAMETER Key
+.PARAMETER Context7Key
     Context7 API key (mcp-context7). Prompted interactively when missing.
-
-.PARAMETER NoClaude
-    skills back-compat: skip ~/.claude/skills.
-
-.PARAMETER NoCodex
-    skills back-compat: skip ~/.codex/skills.
-
-.PARAMETER NoOpenCode
-    skills back-compat: skip ~/.config/opencode/skills.
-
-.PARAMETER NoJunie
-    skills back-compat: skip ~/.junie/skills.
 
 .EXAMPLE
     iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
@@ -63,14 +47,8 @@ param(
     [string]$Subcommand = '',
     [string]$Version = '',
     [string]$Ref = 'main',
-    [string]$Agent = '',
     [string]$Agents = '',
-    [switch]$All,
-    [string]$Key = '',
-    [switch]$NoClaude,
-    [switch]$NoCodex,
-    [switch]$NoOpenCode,
-    [switch]$NoJunie
+    [string]$Context7Key = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -148,7 +126,13 @@ function Get-AgentLabel {
 }
 
 function Resolve-AgentsCsv {
-    param([string]$Csv)
+    param(
+        [string]$Csv,
+        [string]$Subcommand
+    )
+    if ([string]::IsNullOrWhiteSpace($Csv)) {
+        Write-ErrAndExit "${Subcommand}: -Agents is required (e.g. -Agents claude,codex)"
+    }
     $known = @('claude', 'codex', 'opencode', 'junie')
     $tokens = $Csv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
     $resolved = @()
@@ -157,6 +141,9 @@ function Resolve-AgentsCsv {
             Write-ErrAndExit "unknown agent in -Agents: '$t'"
         }
         $resolved += $t
+    }
+    if ($resolved.Count -eq 0) {
+        Write-ErrAndExit "${Subcommand}: -Agents resolved to an empty list"
     }
     return $resolved
 }
@@ -337,35 +324,7 @@ function Install-SkillsForAgent {
 }
 
 function Invoke-CmdSkills {
-    $exclusive = 0
-    if ($All) { $exclusive++ }
-    if ($Agent) { $exclusive++ }
-    if ($Agents) { $exclusive++ }
-    if ($exclusive -gt 1) {
-        Write-ErrAndExit '-All, -Agent and -Agents are mutually exclusive'
-    }
-
-    $agents = @()
-    if ($Agent) {
-        $agents = @($Agent)
-    } elseif ($Agents) {
-        $agents = Resolve-AgentsCsv -Csv $Agents
-        if ($agents.Count -eq 0) {
-            Write-ErrAndExit 'nothing to install (-Agents resolved to empty list)'
-        }
-    } elseif ($All -or (-not ($NoClaude -or $NoCodex -or $NoOpenCode -or $NoJunie))) {
-        $agents = $script:AllAgents
-    } else {
-        if (-not $NoClaude)   { $agents += 'claude' }
-        if (-not $NoCodex)    { $agents += 'codex' }
-        if (-not $NoOpenCode) { $agents += 'opencode' }
-        if (-not $NoJunie)    { $agents += 'junie' }
-    }
-
-    if ($agents.Count -eq 0) {
-        Write-ErrAndExit 'nothing to install (all -No* flags set)'
-    }
-
+    $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'skills'
     Initialize-Tarball
     foreach ($a in $agents) {
         Install-SkillsForAgent -Agent $a
@@ -417,28 +376,7 @@ function Install-AgentsMdFor {
 }
 
 function Invoke-CmdAgentsMd {
-    $exclusive = 0
-    if ($All) { $exclusive++ }
-    if ($Agent) { $exclusive++ }
-    if ($Agents) { $exclusive++ }
-    if ($exclusive -gt 1) {
-        Write-ErrAndExit '-All, -Agent and -Agents are mutually exclusive'
-    }
-
-    $agents = @()
-    if ($Agent) {
-        $agents = @($Agent)
-    } elseif ($Agents) {
-        $agents = Resolve-AgentsCsv -Csv $Agents
-        if ($agents.Count -eq 0) {
-            Write-ErrAndExit 'agents-md: -Agents resolved to empty list'
-        }
-    } elseif ($All) {
-        $agents = $script:AllAgents
-    } else {
-        Write-ErrAndExit 'agents-md: specify -All, -Agent NAME, or -Agents CSV'
-    }
-
+    $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'agents-md'
     Write-Info "Project guidelines target directory: $((Get-Location).Path)"
     Initialize-Tarball
     foreach ($a in $agents) {
@@ -515,14 +453,7 @@ function Install-JetbrainsFor {
 }
 
 function Invoke-CmdMcpJetbrains {
-    $agents = @()
-    if ($Agent) {
-        $agents = @($Agent)
-    } elseif ($All) {
-        $agents = $script:JetbrainsAgents
-    } else {
-        Write-ErrAndExit 'mcp-jetbrains: specify -All or -Agent NAME'
-    }
+    $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'mcp-jetbrains'
     foreach ($a in $agents) {
         try { Install-JetbrainsFor -Agent $a } catch { Write-Info "error: $($_.Exception.Message)" }
     }
@@ -588,16 +519,9 @@ function Install-Context7For {
 }
 
 function Invoke-CmdMcpContext7 {
-    $agents = @()
-    if ($Agent) {
-        $agents = @($Agent)
-    } elseif ($All) {
-        $agents = $script:Context7Agents
-    } else {
-        Write-ErrAndExit 'mcp-context7: specify -All or -Agent NAME'
-    }
+    $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'mcp-context7'
 
-    $apiKey = $Key
+    $apiKey = $Context7Key
     if (-not $apiKey) {
         $apiKey = Read-Prompt -Message 'Context7 API key' -Default ''
         if (-not $apiKey) { Write-ErrAndExit 'Context7 API key is required' }
@@ -606,6 +530,78 @@ function Invoke-CmdMcpContext7 {
     foreach ($a in $agents) {
         try { Install-Context7For -Agent $a -Key $apiKey } catch { Write-Info "error: $($_.Exception.Message)" }
     }
+}
+
+# =================================================================
+# Playwright skills install (npm + playwright-cli)
+# =================================================================
+
+function Install-PlaywrightForAgents {
+    param([string[]]$Agents)
+
+    Test-Tool -Tool 'npm'
+    Write-Info 'Installing/upgrading @playwright/cli globally via npm...'
+    & npm i -g '@playwright/cli@latest'
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrAndExit 'npm install of @playwright/cli failed'
+    }
+
+    Test-Tool -Tool 'playwright-cli'
+
+    $claudeSkills = Join-Path $HOME '.claude/skills'
+    if (-not (Test-Path $claudeSkills)) {
+        New-Item -ItemType Directory -Path $claudeSkills -Force | Out-Null
+    }
+
+    $before = @()
+    if (Test-Path $claudeSkills) {
+        $before = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
+    }
+
+    Write-Info "Running 'playwright-cli install --skills'..."
+    & playwright-cli install --skills
+    if ($LASTEXITCODE -ne 0) {
+        Write-ErrAndExit 'playwright-cli install --skills failed'
+    }
+
+    $after = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
+    $newSkills = $after | Where-Object { $before -notcontains $_ }
+
+    if ($newSkills.Count -eq 0) {
+        Write-Info "  No new skill folders detected in $claudeSkills."
+    } else {
+        Write-Info "  Playwright skill(s) installed in ${claudeSkills}: $($newSkills -join ' ')"
+    }
+
+    foreach ($agent in $Agents) {
+        if ($agent -eq 'claude') { continue }
+        $target = Get-SkillsTarget -Agent $agent
+        if (-not (Test-Path $target)) {
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+        }
+        foreach ($skill in $newSkills) {
+            $src = Join-Path $claudeSkills $skill
+            if (-not (Test-Path $src)) { continue }
+            $dest = Join-Path $target $skill
+            if (Test-Path $dest) {
+                $backupName = "$skill.bak-$($script:Timestamp)"
+                Rename-Item -Path $dest -NewName $backupName -ErrorAction Stop
+                Copy-Item -Path $src -Destination $dest -Recurse -Force -ErrorAction Stop
+                Write-Info "  Updated: $dest (backup: $backupName)"
+            } else {
+                Copy-Item -Path $src -Destination $dest -Recurse -Force -ErrorAction Stop
+                Write-Info "  Installed: $dest"
+            }
+        }
+    }
+
+    Write-Info ''
+    Write-Info "Done. Playwright skills installed for: $($Agents -join ', ')"
+}
+
+function Invoke-CmdPlaywright {
+    $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'playwright'
+    Install-PlaywrightForAgents -Agents $agents
 }
 
 # =================================================================
@@ -650,10 +646,11 @@ function Invoke-Wizard {
         guidelines = 'skipped'
         jetbrains  = 'skipped'
         context7   = 'skipped'
+        playwright = 'skipped'
     }
 
     # Step 1: skills
-    $sel = Read-AgentChoice -Label '[1/4] Install Jmix skills globally?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills globally?' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
         Initialize-Tarball
         foreach ($a in $sel) {
@@ -663,7 +660,7 @@ function Invoke-Wizard {
     }
 
     # Step 2: agents-md
-    $sel = Read-AgentChoice -Label '[2/4] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[2/5] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
         if (Read-YesNo -Message "Target directory: $((Get-Location).Path). Proceed?" -Default 'y') {
             Initialize-Tarball
@@ -677,7 +674,7 @@ function Invoke-Wizard {
     }
 
     # Step 3: JetBrains MCP
-    $sel = Read-AgentChoice -Label '[3/4] Connect agent to IntelliJ IDEA via JetBrains MCP?' -Options $script:JetbrainsAgents
+    $sel = Read-AgentChoice -Label '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' -Options $script:JetbrainsAgents
     if ($sel[0] -ne 'skip') {
         foreach ($a in $sel) {
             try { Install-JetbrainsFor -Agent $a } catch { Write-Info "error: $($_.Exception.Message)" }
@@ -686,7 +683,7 @@ function Invoke-Wizard {
     }
 
     # Step 4: Context7 MCP
-    $sel = Read-AgentChoice -Label '[4/4] Connect agent to library docs via Context7 MCP?' -Options $script:Context7Agents
+    $sel = Read-AgentChoice -Label '[4/5] Connect agent to library docs via Context7 MCP?' -Options $script:Context7Agents
     if ($sel[0] -ne 'skip') {
         $apiKey = Read-Prompt -Message 'Context7 API key' -Default ''
         if ($apiKey) {
@@ -700,12 +697,24 @@ function Invoke-Wizard {
         }
     }
 
+    # Step 5: Playwright
+    $sel = Read-AgentChoice -Label '[5/5] Install Playwright testing skills? (requires npm)' -Options $script:AllAgents
+    if ($sel[0] -ne 'skip') {
+        try {
+            Install-PlaywrightForAgents -Agents $sel
+            $summaryStrings.playwright = $sel -join ', '
+        } catch {
+            Write-Info "error: $($_.Exception.Message)"
+        }
+    }
+
     Write-Info ''
     Write-Info '=== Setup complete ==='
     Write-Info "  Skills:      $($summaryStrings.skills)"
     Write-Info "  Guidelines:  $($summaryStrings.guidelines)"
     Write-Info "  JetBrains:   $($summaryStrings.jetbrains)"
     Write-Info "  Context7:    $($summaryStrings.context7)"
+    Write-Info "  Playwright:  $($summaryStrings.playwright)"
 }
 
 # =================================================================
@@ -719,6 +728,7 @@ try {
         'agents-md'      { Invoke-CmdAgentsMd }
         'mcp-jetbrains'  { Invoke-CmdMcpJetbrains }
         'mcp-context7'   { Invoke-CmdMcpContext7 }
+        'playwright'     { Invoke-CmdPlaywright }
         default          { Write-ErrAndExit "unknown subcommand: $Subcommand" }
     }
 }

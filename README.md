@@ -12,11 +12,55 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
       - Optional subdirectories with examples or other materials.
 
-## How to Use
+## Automatic Installation
 
-To enable these guidelines for your AI agent, follow the steps below. 
+A single command launches an interactive wizard that walks through every setup step: installing global skills for one or more agents, adding the project guideline file (`CLAUDE.md` / `AGENTS.md` / `.junie/guidelines.md`) to the project root, and registering the JetBrains and Context7 MCP servers.
 
-Take the files from the `v2/` directory if you are using Jmix 2.x.
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash
+```
+
+**Windows (PowerShell 5+):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
+```
+
+In Jmix Studio plugin, the same wizard is available from the **Configure AI Agents for Jmix** action.
+
+### Non-Interactive Subcommands
+
+Use these to run a single step without the wizard. Every subcommand takes the
+same `--agents CSV` flag:
+
+```bash
+install.sh skills        --agents CSV   [--version V]
+install.sh agents-md     --agents CSV   [--version V]
+install.sh mcp-jetbrains --agents CSV
+install.sh mcp-context7  --agents CSV   [--context7-key KEY]
+install.sh playwright    --agents CSV   # requires npm on PATH
+```
+
+PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `install.ps1 mcp-context7 -Agents claude -Context7Key KEY`, `install.ps1 playwright -Agents claude,codex`, etc.
+
+**CSV** = comma-separated agent list (e.g. `claude,codex`) or a single value (e.g. `claude`). Valid agents: `claude`, `codex`, `opencode`, `junie`.
+
+### Flags
+
+| Flag (bash)        | Flag (PowerShell) | Default | Meaning                                                 |
+|:-------------------|:------------------|:--------|:--------------------------------------------------------|
+| `--version V`      | `-Version V`      | latest  | Jmix version. Picks the best-matching `v*` folder.      |
+| `--ref REF`        | `-Ref REF`        | `main`  | Git ref (branch or tag) of this repository to download. |
+| `--agents CSV`     | `-Agents CSV`     | -       | Comma-separated agents. Required by every subcommand.   |
+| `--context7-key K` | `-Context7Key K`  | prompt  | Context7 API key. Prompted interactively when omitted.  |
+
+> The automatic installer covers global skills, project guidelines, MCP server registration, and Playwright testing skills. The Playwright step shells out to `npm` and `playwright-cli`, so both must be available on PATH.
+
+## Manual Installation
+
+If you prefer not to run the script, follow these steps. Take the files from the `v2/` directory if you are using Jmix 2.x.
 
 ### 1. Project Guidelines
 
@@ -39,31 +83,6 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 | Codex       | `~/.codex/skills/`           |
 | OpenCode    | `~/.config/opencode/skills/` |
 | Junie       | `~/.junie/skills/`           |
-
-### Quick Install
-
-**macOS / Linux:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash
-```
-
-**Windows (PowerShell 5+):**
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
-```
-
-**Flags:**
-
-| Flag (bash)       | Flag (PowerShell) | Default | Meaning                              |
-|:------------------|:------------------|:--------|:-------------------------------------|
-| `--version x.y.z` | `-Version x.y.z`  | ``      | Jmix version.                        |
-| `--ref REF`       | `-Ref REF`        | `main`  | Git ref (branch or tag) to download. |
-| `--no-claude`     | `-NoClaude`       | off     | Skip `~/.claude/skills/`.            |
-| `--no-codex`      | `-NoCodex`        | off     | Skip `~/.codex/skills/`.             |
-
-> The quick install covers global skills only. For the project `AGENTS.md` / `CLAUDE.md` file, MCP servers, and Playwright setup, follow the manual steps in the [How to Use](#how-to-use) section below.
 
 #### Example
 

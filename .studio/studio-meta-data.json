@@ -59,9 +59,9 @@
           "default": true
         },
         "command": {
-          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-jetbrains -All",
-          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --all",
-          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --all"
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-jetbrains -Agents \"${skillsAgents}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --agents \"${skillsAgents}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --agents \"${skillsAgents}\""
         }
       },
       {
@@ -84,9 +84,23 @@
           "placeholder": "ctx7_..."
         },
         "command": {
-          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-context7 -All -Key \"${context7Key}\"",
-          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --all --key \"${context7Key}\"",
-          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --all --key \"${context7Key}\""
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-context7 -Agents \"${skillsAgents}\" -Context7Key \"${context7Key}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --agents \"${skillsAgents}\" --context7-key \"${context7Key}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --agents \"${skillsAgents}\" --context7-key \"${context7Key}\""
+        }
+      },
+      {
+        "id": "installPlaywright",
+        "message": "Install Playwright testing skills? Requires npm to be installed on PATH.",
+        "input": {
+          "type": "checkbox",
+          "label": "Install Playwright skills",
+          "default": false
+        },
+        "command": {
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) playwright -Agents \"${skillsAgents}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- playwright --agents \"${skillsAgents}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- playwright --agents \"${skillsAgents}\""
         }
       }
     ]

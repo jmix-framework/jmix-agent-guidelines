@@ -52,6 +52,30 @@ require_tool() {
     command -v "$1" >/dev/null 2>&1 || die "$1 not found. Install it and re-run."
 }
 
+# Parses a comma-separated agents list. Single value (e.g. "claude") is allowed.
+# Validates each token. Emits a space-separated list to stdout.
+# $1 - csv string (may be empty)
+# $2 - subcommand name for the error message
+parse_agents_csv() {
+    local csv="$1"
+    local subcommand="$2"
+    if [ -z "$csv" ]; then
+        die "${subcommand}: --agents is required (e.g. --agents claude,codex)"
+    fi
+    local result=""
+    local token
+    for token in $(printf '%s' "$csv" | tr ',' ' ' | tr -s ' ' ' '); do
+        case "$token" in
+            claude|codex|opencode|junie) result="${result} ${token}" ;;
+            "") ;;
+            *) die "unknown agent in --agents: '$token'" ;;
+        esac
+    done
+    result="$(printf '%s' "$result" | sed 's/^ //;s/ $//')"
+    [ -n "$result" ] || die "${subcommand}: --agents resolved to an empty list"
+    printf '%s' "$result"
+}
+
 # Reads a line from /dev/tty so prompts work under `curl ... | bash`.
 # Falls back to the supplied default when no TTY is available.
 prompt() {
@@ -96,27 +120,27 @@ usage() {
 Jmix AI Agent Guidelines installer.
 
 Usage:
-  install.sh [--version V] [--ref REF]                  # interactive wizard
-  install.sh skills        [options]                    # install global skills only
-  install.sh agents-md     [options]                    # install project guidelines
-  install.sh mcp-jetbrains [options]                    # register JetBrains MCP
-  install.sh mcp-context7  [options] [--key KEY]        # register Context7 MCP
+  install.sh [--version V] [--ref REF]                           # interactive wizard
+  install.sh skills        [options]                             # install global skills only
+  install.sh agents-md     [options]                             # install project guidelines
+  install.sh mcp-jetbrains [options]                             # register JetBrains MCP
+  install.sh mcp-context7  [options] [--context7-key KEY]        # register Context7 MCP
+  install.sh playwright    [options]                             # install Playwright testing skills
 
 Common options:
   --version V        Jmix version (e.g. 2.8.0). Optional. Best-matching folder
                      is picked: exact -> major.minor -> major -> latest.
   --ref REF          Git ref to download (default: main).
-  --agent NAME       Apply to one of: claude, codex, opencode, junie.
-  --all              Apply to every supported agent for the subcommand.
+  --agents CSV       Comma-separated agent list. Accepts a single value too
+                     (e.g. "claude" or "claude,codex"). Required by every
+                     subcommand. Valid values: claude, codex, opencode, junie.
   -h, --help         Show this help.
 
-skills options:
-  --agents CSV     Comma-separated agent list (e.g. claude,codex).
-                   Mutually exclusive with --agent and --all.
-  --no-claude  --no-codex  --no-opencode  --no-junie    (back-compat with --all)
-
 mcp-context7 options:
-  --key KEY          Context7 API key. Prompted interactively when missing.
+  --context7-key K   Context7 API key. Prompted interactively when missing.
+
+playwright options:
+  (uses common --agents flag; requires `npm` on PATH)
 EOF
 }
 
@@ -294,27 +318,13 @@ install_skills_for_agent() {
 }
 
 cmd_skills() {
-    local agents=""
-    local pick_all=0
-    local pick_agent=""
-    local pick_agents_csv=""
-
-    # Back-compat flags
-    local nc=0 nx=0 no=0 nj=0
+    local agents_csv=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --all) pick_all=1; shift ;;
-            --agent)
-                [ $# -ge 2 ] || die "--agent requires an argument"
-                pick_agent="$2"; shift 2 ;;
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
-                pick_agents_csv="$2"; shift 2 ;;
-            --no-claude)   nc=1; shift ;;
-            --no-codex)    nx=1; shift ;;
-            --no-opencode) no=1; shift ;;
-            --no-junie)    nj=1; shift ;;
+                agents_csv="$2"; shift 2 ;;
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
                 VERSION="$2"; shift 2 ;;
@@ -326,38 +336,8 @@ cmd_skills() {
         esac
     done
 
-    local exclusive_count=0
-    [ "$pick_all" -eq 1 ] && exclusive_count=$((exclusive_count + 1))
-    [ -n "$pick_agent" ] && exclusive_count=$((exclusive_count + 1))
-    [ -n "$pick_agents_csv" ] && exclusive_count=$((exclusive_count + 1))
-    if [ "$exclusive_count" -gt 1 ]; then
-        die "--all, --agent and --agents are mutually exclusive"
-    fi
-
-    if [ -n "$pick_agent" ]; then
-        agents="$pick_agent"
-    elif [ -n "$pick_agents_csv" ]; then
-        # Parse CSV -> space-separated list, validate each token.
-        local raw token
-        raw="$(printf '%s' "$pick_agents_csv" | tr ',' ' ' | tr -s ' ' ' ')"
-        for token in $raw; do
-            case "$token" in
-                claude|codex|opencode|junie) agents="${agents} ${token}" ;;
-                "") ;;
-                *) die "unknown agent in --agents: '$token'" ;;
-            esac
-        done
-    elif [ "$pick_all" -eq 1 ] || [ "$nc$nx$no$nj" = "0000" ]; then
-        agents="$ALL_AGENTS"
-    else
-        [ "$nc" -eq 0 ] && agents="${agents} claude"
-        [ "$nx" -eq 0 ] && agents="${agents} codex"
-        [ "$no" -eq 0 ] && agents="${agents} opencode"
-        [ "$nj" -eq 0 ] && agents="${agents} junie"
-    fi
-
-    agents="$(printf '%s' "$agents" | tr -s ' ' ' ' | sed 's/^ //;s/ $//')"
-    [ -n "$agents" ] || die "nothing to install (no agents resolved)"
+    local agents
+    agents="$(parse_agents_csv "$agents_csv" "skills")"
 
     ensure_tarball
 
@@ -412,19 +392,13 @@ install_agents_md_for() {
 }
 
 cmd_agents_md() {
-    local pick_all=0
-    local pick_agent=""
-    local pick_agents_csv=""
+    local agents_csv=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --all) pick_all=1; shift ;;
-            --agent)
-                [ $# -ge 2 ] || die "--agent requires an argument"
-                pick_agent="$2"; shift 2 ;;
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
-                pick_agents_csv="$2"; shift 2 ;;
+                agents_csv="$2"; shift 2 ;;
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
                 VERSION="$2"; shift 2 ;;
@@ -436,34 +410,8 @@ cmd_agents_md() {
         esac
     done
 
-    local exclusive_count=0
-    [ "$pick_all" -eq 1 ] && exclusive_count=$((exclusive_count + 1))
-    [ -n "$pick_agent" ] && exclusive_count=$((exclusive_count + 1))
-    [ -n "$pick_agents_csv" ] && exclusive_count=$((exclusive_count + 1))
-    if [ "$exclusive_count" -gt 1 ]; then
-        die "--all, --agent and --agents are mutually exclusive"
-    fi
-
-    local agents=""
-    if [ -n "$pick_agent" ]; then
-        agents="$pick_agent"
-    elif [ -n "$pick_agents_csv" ]; then
-        local raw token
-        raw="$(printf '%s' "$pick_agents_csv" | tr ',' ' ' | tr -s ' ' ' ')"
-        for token in $raw; do
-            case "$token" in
-                claude|codex|opencode|junie) agents="${agents} ${token}" ;;
-                "") ;;
-                *) die "unknown agent in --agents: '$token'" ;;
-            esac
-        done
-        agents="$(printf '%s' "$agents" | sed 's/^ //;s/ $//')"
-        [ -n "$agents" ] || die "agents-md: --agents resolved to empty list"
-    elif [ "$pick_all" -eq 1 ]; then
-        agents="$ALL_AGENTS"
-    else
-        die "agents-md: specify --all, --agent NAME, or --agents CSV"
-    fi
+    local agents
+    agents="$(parse_agents_csv "$agents_csv" "agents-md")"
 
     log "Project guidelines target directory: $(pwd -P)"
     ensure_tarball
@@ -536,28 +484,20 @@ install_jetbrains_for() {
 }
 
 cmd_mcp_jetbrains() {
-    local pick_all=0
-    local pick_agent=""
+    local agents_csv=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --all) pick_all=1; shift ;;
-            --agent)
-                [ $# -ge 2 ] || die "--agent requires an argument"
-                pick_agent="$2"; shift 2 ;;
+            --agents)
+                [ $# -ge 2 ] || die "--agents requires an argument"
+                agents_csv="$2"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
     done
 
-    local agents=""
-    if [ -n "$pick_agent" ]; then
-        agents="$pick_agent"
-    elif [ "$pick_all" -eq 1 ]; then
-        agents="$JETBRAINS_AGENTS"
-    else
-        die "mcp-jetbrains: specify --all or --agent NAME"
-    fi
+    local agents
+    agents="$(parse_agents_csv "$agents_csv" "mcp-jetbrains")"
 
     local agent rc=0
     for agent in $agents; do
@@ -643,32 +583,24 @@ install_context7_for() {
 }
 
 cmd_mcp_context7() {
-    local pick_all=0
-    local pick_agent=""
+    local agents_csv=""
     local key=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
-            --all) pick_all=1; shift ;;
-            --agent)
-                [ $# -ge 2 ] || die "--agent requires an argument"
-                pick_agent="$2"; shift 2 ;;
-            --key)
-                [ $# -ge 2 ] || die "--key requires an argument"
+            --agents)
+                [ $# -ge 2 ] || die "--agents requires an argument"
+                agents_csv="$2"; shift 2 ;;
+            --context7-key)
+                [ $# -ge 2 ] || die "--context7-key requires an argument"
                 key="$2"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
     done
 
-    local agents=""
-    if [ -n "$pick_agent" ]; then
-        agents="$pick_agent"
-    elif [ "$pick_all" -eq 1 ]; then
-        agents="$CONTEXT7_AGENTS"
-    else
-        die "mcp-context7: specify --all or --agent NAME"
-    fi
+    local agents
+    agents="$(parse_agents_csv "$agents_csv" "mcp-context7")"
 
     if [ -z "$key" ]; then
         key="$(prompt 'Context7 API key' '')"
@@ -680,6 +612,77 @@ cmd_mcp_context7() {
         install_context7_for "$agent" "$key" || rc=1
     done
     return $rc
+}
+
+# =================================================================
+# Playwright skills install (npm + playwright-cli)
+# =================================================================
+
+cmd_playwright() {
+    local agents_csv=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --agents)
+                [ $# -ge 2 ] || die "--agents requires an argument"
+                agents_csv="$2"; shift 2 ;;
+            -h|--help) usage; exit 0 ;;
+            *) die "unknown argument: $1" ;;
+        esac
+    done
+
+    local agents
+    agents="$(parse_agents_csv "$agents_csv" "playwright")"
+
+    require_tool npm
+
+    log "Installing/upgrading @playwright/cli globally via npm..."
+    npm i -g @playwright/cli@latest || die "npm install of @playwright/cli failed"
+
+    require_tool playwright-cli
+
+    local claude_skills="${HOME}/.claude/skills"
+    mkdir -p "$claude_skills" || die "cannot create ${claude_skills}"
+    local before
+    before="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
+
+    log "Running 'playwright-cli install --skills'..."
+    playwright-cli install --skills || die "playwright-cli install --skills failed"
+
+    local after
+    after="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
+    local new_skills
+    new_skills="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after"))"
+
+    if [ -z "$new_skills" ]; then
+        log "  No new skill folders detected in ${claude_skills}."
+        log "  Playwright skills appear to be up to date for Claude Code."
+    else
+        log "  Playwright skill(s) installed in ${claude_skills}: $(printf '%s' "$new_skills" | tr '\n' ' ')"
+    fi
+
+    # Replicate the newly-installed skills to the other selected agents.
+    local agent target dest backup skill
+    for agent in $agents; do
+        [ "$agent" = "claude" ] && continue
+        target="$(skills_target_for_agent "$agent")"
+        mkdir -p "$target" || die "cannot create ${target}"
+        for skill in $new_skills; do
+            [ -d "${claude_skills}/${skill}" ] || continue
+            dest="${target}/${skill}"
+            if [ -e "$dest" ]; then
+                backup="${dest}.bak-${TIMESTAMP}"
+                mv "$dest" "$backup" || die "cannot rename ${dest}"
+                cp -R "${claude_skills}/${skill}" "$dest" || die "cannot copy to ${dest}"
+                log "  Updated: ${dest} (backup: $(basename "$backup"))"
+            else
+                cp -R "${claude_skills}/${skill}" "$dest" || die "cannot copy to ${dest}"
+                log "  Installed: ${dest}"
+            fi
+        done
+    done
+
+    log ""
+    log "Done. Playwright skills installed for: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
 }
 
 # =================================================================
@@ -753,10 +756,11 @@ cmd_wizard() {
     local summary_guidelines="skipped"
     local summary_jetbrains="skipped"
     local summary_context7="skipped"
+    local summary_playwright="skipped"
 
     # Step 1: skills
     local sel
-    sel="$(wizard_pick_agent '[1/4] Install Jmix skills globally?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent '[1/5] Install Jmix skills globally?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         ensure_tarball
         local agent
@@ -767,7 +771,7 @@ cmd_wizard() {
     fi
 
     # Step 2: agents-md
-    sel="$(wizard_pick_agent '[2/4] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         if prompt_yes_no "Target directory: $(pwd -P). Proceed?" "y"; then
             ensure_tarball
@@ -782,7 +786,7 @@ cmd_wizard() {
     fi
 
     # Step 3: JetBrains MCP
-    sel="$(wizard_pick_agent '[3/4] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
+    sel="$(wizard_pick_agent '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local agent
         for agent in $sel; do
@@ -792,7 +796,7 @@ cmd_wizard() {
     fi
 
     # Step 4: Context7 MCP
-    sel="$(wizard_pick_agent '[4/4] Connect agent to library docs via Context7 MCP?' $CONTEXT7_AGENTS)"
+    sel="$(wizard_pick_agent '[4/5] Connect agent to library docs via Context7 MCP?' $CONTEXT7_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local key
         key="$(prompt 'Context7 API key' '')"
@@ -808,12 +812,22 @@ cmd_wizard() {
         fi
     fi
 
+    # Step 5: Playwright
+    sel="$(wizard_pick_agent '[5/5] Install Playwright testing skills? (requires npm)' $ALL_AGENTS)"
+    if [ "$sel" != "skip" ]; then
+        local pw_csv
+        pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
+        cmd_playwright --agents "$pw_csv" || true
+        summary_playwright="$sel"
+    fi
+
     log ""
     log "=== Setup complete ==="
     log "  Skills:      ${summary_skills}"
     log "  Guidelines:  ${summary_guidelines}"
     log "  JetBrains:   ${summary_jetbrains}"
     log "  Context7:    ${summary_context7}"
+    log "  Playwright:  ${summary_playwright}"
 }
 
 # =================================================================
@@ -830,6 +844,7 @@ case "$1" in
     agents-md)     shift; cmd_agents_md "$@" ;;
     mcp-jetbrains) shift; cmd_mcp_jetbrains "$@" ;;
     mcp-context7)  shift; cmd_mcp_context7 "$@" ;;
+    playwright)    shift; cmd_playwright "$@" ;;
     -h|--help)     usage ;;
     --*)           cmd_wizard "$@" ;;
     *)             die "unknown subcommand: $1" ;;
