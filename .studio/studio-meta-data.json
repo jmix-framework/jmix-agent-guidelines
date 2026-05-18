@@ -1,18 +1,93 @@
 {
+  "$schema": "./studio-meta-data.schema.json",
   "install-flow": {
     "steps": [
       {
-        "message": "Configure AI agents for Jmix",
-        "options": [
-          {
-            "label": "Configure via Jmix CLI script",
-            "command": {
-              "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) -Version \"${JMIX_VERSION}\"",
-              "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash --version \"${JMIX_VERSION}\"",
-              "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash --version \"${JMIX_VERSION}\""
-            }
-          }
-        ]
+        "id": "skillsAgents",
+        "message": "Pick agents to install Jmix skills for.",
+        "input": {
+          "type": "options",
+          "multi": true,
+          "choices": [
+            { "value": "claude",   "label": "Claude Code", "default": true },
+            { "value": "codex",    "label": "Codex",       "default": true },
+            { "value": "opencode", "label": "OpenCode",    "default": true },
+            { "value": "junie",    "label": "Junie",       "default": true }
+          ]
+        },
+        "command": {
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) skills -Agents \"${skillsAgents}\" -Version \"${JMIX_VERSION}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --version \"${JMIX_VERSION}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --version \"${JMIX_VERSION}\""
+        }
+      },
+      {
+        "id": "installGuidelines",
+        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md) to the project root?",
+        "input": {
+          "type": "checkbox",
+          "label": "Install project guidelines",
+          "default": true
+        }
+      },
+      {
+        "id": "guidelinesAgents",
+        "runIf": "installGuidelines",
+        "message": "Pick agents for the project guideline files.",
+        "input": {
+          "type": "options",
+          "multi": true,
+          "choices": [
+            { "value": "claude",   "label": "Claude Code", "default": true },
+            { "value": "codex",    "label": "Codex",       "default": true },
+            { "value": "opencode", "label": "OpenCode",    "default": true },
+            { "value": "junie",    "label": "Junie",       "default": true }
+          ]
+        },
+        "command": {
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) agents-md -Agents \"${guidelinesAgents}\" -Version \"${JMIX_VERSION}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\" --version \"${JMIX_VERSION}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\" --version \"${JMIX_VERSION}\""
+        }
+      },
+      {
+        "id": "installJetbrainsMcp",
+        "message": "Register the JetBrains MCP server with installed agents? Recommended.",
+        "input": {
+          "type": "checkbox",
+          "label": "Register JetBrains MCP",
+          "default": true
+        },
+        "command": {
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-jetbrains -All",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --all",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --all"
+        }
+      },
+      {
+        "id": "installContext7",
+        "message": "Register the Context7 MCP server (provides up-to-date library documentation)?",
+        "input": {
+          "type": "checkbox",
+          "label": "Register Context7 MCP",
+          "default": false
+        }
+      },
+      {
+        "id": "context7Key",
+        "runIf": "installContext7",
+        "message": "Enter your Context7 API key. The key is sent to the MCP CLI and never stored by Studio.",
+        "input": {
+          "type": "userInput",
+          "regex": "^.{8,}$",
+          "errorMessage": "Context7 API key must be at least 8 characters.",
+          "placeholder": "ctx7_..."
+        },
+        "command": {
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-context7 -All -Key \"${context7Key}\"",
+          "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --all --key \"${context7Key}\"",
+          "linux":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-context7 --all --key \"${context7Key}\""
+        }
       }
     ]
   }

@@ -111,6 +111,8 @@ Common options:
   -h, --help         Show this help.
 
 skills options:
+  --agents CSV     Comma-separated agent list (e.g. claude,codex).
+                   Mutually exclusive with --agent and --all.
   --no-claude  --no-codex  --no-opencode  --no-junie    (back-compat with --all)
 
 mcp-context7 options:
@@ -295,6 +297,7 @@ cmd_skills() {
     local agents=""
     local pick_all=0
     local pick_agent=""
+    local pick_agents_csv=""
 
     # Back-compat flags
     local nc=0 nx=0 no=0 nj=0
@@ -305,6 +308,9 @@ cmd_skills() {
             --agent)
                 [ $# -ge 2 ] || die "--agent requires an argument"
                 pick_agent="$2"; shift 2 ;;
+            --agents)
+                [ $# -ge 2 ] || die "--agents requires an argument"
+                pick_agents_csv="$2"; shift 2 ;;
             --no-claude)   nc=1; shift ;;
             --no-codex)    nx=1; shift ;;
             --no-opencode) no=1; shift ;;
@@ -320,8 +326,27 @@ cmd_skills() {
         esac
     done
 
+    local exclusive_count=0
+    [ "$pick_all" -eq 1 ] && exclusive_count=$((exclusive_count + 1))
+    [ -n "$pick_agent" ] && exclusive_count=$((exclusive_count + 1))
+    [ -n "$pick_agents_csv" ] && exclusive_count=$((exclusive_count + 1))
+    if [ "$exclusive_count" -gt 1 ]; then
+        die "--all, --agent and --agents are mutually exclusive"
+    fi
+
     if [ -n "$pick_agent" ]; then
         agents="$pick_agent"
+    elif [ -n "$pick_agents_csv" ]; then
+        # Parse CSV -> space-separated list, validate each token.
+        local raw token
+        raw="$(printf '%s' "$pick_agents_csv" | tr ',' ' ' | tr -s ' ' ' ')"
+        for token in $raw; do
+            case "$token" in
+                claude|codex|opencode|junie) agents="${agents} ${token}" ;;
+                "") ;;
+                *) die "unknown agent in --agents: '$token'" ;;
+            esac
+        done
     elif [ "$pick_all" -eq 1 ] || [ "$nc$nx$no$nj" = "0000" ]; then
         agents="$ALL_AGENTS"
     else
@@ -332,7 +357,7 @@ cmd_skills() {
     fi
 
     agents="$(printf '%s' "$agents" | tr -s ' ' ' ' | sed 's/^ //;s/ $//')"
-    [ -n "$agents" ] || die "nothing to install (all --no-* flags set)"
+    [ -n "$agents" ] || die "nothing to install (no agents resolved)"
 
     ensure_tarball
 
@@ -389,6 +414,7 @@ install_agents_md_for() {
 cmd_agents_md() {
     local pick_all=0
     local pick_agent=""
+    local pick_agents_csv=""
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -396,6 +422,9 @@ cmd_agents_md() {
             --agent)
                 [ $# -ge 2 ] || die "--agent requires an argument"
                 pick_agent="$2"; shift 2 ;;
+            --agents)
+                [ $# -ge 2 ] || die "--agents requires an argument"
+                pick_agents_csv="$2"; shift 2 ;;
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
                 VERSION="$2"; shift 2 ;;
@@ -407,13 +436,33 @@ cmd_agents_md() {
         esac
     done
 
+    local exclusive_count=0
+    [ "$pick_all" -eq 1 ] && exclusive_count=$((exclusive_count + 1))
+    [ -n "$pick_agent" ] && exclusive_count=$((exclusive_count + 1))
+    [ -n "$pick_agents_csv" ] && exclusive_count=$((exclusive_count + 1))
+    if [ "$exclusive_count" -gt 1 ]; then
+        die "--all, --agent and --agents are mutually exclusive"
+    fi
+
     local agents=""
     if [ -n "$pick_agent" ]; then
         agents="$pick_agent"
+    elif [ -n "$pick_agents_csv" ]; then
+        local raw token
+        raw="$(printf '%s' "$pick_agents_csv" | tr ',' ' ' | tr -s ' ' ' ')"
+        for token in $raw; do
+            case "$token" in
+                claude|codex|opencode|junie) agents="${agents} ${token}" ;;
+                "") ;;
+                *) die "unknown agent in --agents: '$token'" ;;
+            esac
+        done
+        agents="$(printf '%s' "$agents" | sed 's/^ //;s/ $//')"
+        [ -n "$agents" ] || die "agents-md: --agents resolved to empty list"
     elif [ "$pick_all" -eq 1 ]; then
         agents="$ALL_AGENTS"
     else
-        die "agents-md: specify --all or --agent NAME"
+        die "agents-md: specify --all, --agent NAME, or --agents CSV"
     fi
 
     log "Project guidelines target directory: $(pwd -P)"
@@ -718,7 +767,7 @@ cmd_wizard() {
     fi
 
     # Step 2: agents-md
-    sel="$(wizard_pick_agent '[2/4] Add Jmix coding guidelines to project root?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent '[2/4] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         if prompt_yes_no "Target directory: $(pwd -P). Proceed?" "y"; then
             ensure_tarball

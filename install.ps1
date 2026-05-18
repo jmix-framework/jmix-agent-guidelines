@@ -29,6 +29,10 @@
 .PARAMETER Agent
     Single agent target: claude, codex, opencode, or junie.
 
+.PARAMETER Agents
+    Comma-separated list of agents (e.g. "claude,codex"). Mutually exclusive
+    with -Agent and -All.
+
 .PARAMETER All
     Apply the subcommand to every supported agent.
 
@@ -60,6 +64,7 @@ param(
     [string]$Version = '',
     [string]$Ref = 'main',
     [string]$Agent = '',
+    [string]$Agents = '',
     [switch]$All,
     [string]$Key = '',
     [switch]$NoClaude,
@@ -140,6 +145,20 @@ function Get-AgentLabel {
         'junie'    { 'Junie' }
         default    { $Agent }
     }
+}
+
+function Resolve-AgentsCsv {
+    param([string]$Csv)
+    $known = @('claude', 'codex', 'opencode', 'junie')
+    $tokens = $Csv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+    $resolved = @()
+    foreach ($t in $tokens) {
+        if ($known -notcontains $t) {
+            Write-ErrAndExit "unknown agent in -Agents: '$t'"
+        }
+        $resolved += $t
+    }
+    return $resolved
 }
 
 # =================================================================
@@ -318,9 +337,22 @@ function Install-SkillsForAgent {
 }
 
 function Invoke-CmdSkills {
+    $exclusive = 0
+    if ($All) { $exclusive++ }
+    if ($Agent) { $exclusive++ }
+    if ($Agents) { $exclusive++ }
+    if ($exclusive -gt 1) {
+        Write-ErrAndExit '-All, -Agent and -Agents are mutually exclusive'
+    }
+
     $agents = @()
     if ($Agent) {
         $agents = @($Agent)
+    } elseif ($Agents) {
+        $agents = Resolve-AgentsCsv -Csv $Agents
+        if ($agents.Count -eq 0) {
+            Write-ErrAndExit 'nothing to install (-Agents resolved to empty list)'
+        }
     } elseif ($All -or (-not ($NoClaude -or $NoCodex -or $NoOpenCode -or $NoJunie))) {
         $agents = $script:AllAgents
     } else {
@@ -385,13 +417,26 @@ function Install-AgentsMdFor {
 }
 
 function Invoke-CmdAgentsMd {
+    $exclusive = 0
+    if ($All) { $exclusive++ }
+    if ($Agent) { $exclusive++ }
+    if ($Agents) { $exclusive++ }
+    if ($exclusive -gt 1) {
+        Write-ErrAndExit '-All, -Agent and -Agents are mutually exclusive'
+    }
+
     $agents = @()
     if ($Agent) {
         $agents = @($Agent)
+    } elseif ($Agents) {
+        $agents = Resolve-AgentsCsv -Csv $Agents
+        if ($agents.Count -eq 0) {
+            Write-ErrAndExit 'agents-md: -Agents resolved to empty list'
+        }
     } elseif ($All) {
         $agents = $script:AllAgents
     } else {
-        Write-ErrAndExit 'agents-md: specify -All or -Agent NAME'
+        Write-ErrAndExit 'agents-md: specify -All, -Agent NAME, or -Agents CSV'
     }
 
     Write-Info "Project guidelines target directory: $((Get-Location).Path)"
@@ -618,7 +663,7 @@ function Invoke-Wizard {
     }
 
     # Step 2: agents-md
-    $sel = Read-AgentChoice -Label '[2/4] Add Jmix coding guidelines to project root?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[2/4] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
         if (Read-YesNo -Message "Target directory: $((Get-Location).Path). Proceed?" -Default 'y') {
             Initialize-Tarball
