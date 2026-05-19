@@ -4,7 +4,7 @@
     "steps": [
       {
         "id": "skillsAgents",
-        "message": "Pick agents to install Jmix skills for.",
+        "message": "Install Jmix skills globally for the selected agents. Click Skip to opt out.",
         "input": {
           "type": "options",
           "multi": true,
@@ -22,18 +22,8 @@
         }
       },
       {
-        "id": "installGuidelines",
-        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md) to the project root?",
-        "input": {
-          "type": "checkbox",
-          "label": "Install project guidelines",
-          "default": true
-        }
-      },
-      {
         "id": "guidelinesAgents",
-        "runIf": "installGuidelines",
-        "message": "Pick agents for the project guideline files.",
+        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md) to the project root for the selected agents. Click Skip to leave the project as is.",
         "input": {
           "type": "options",
           "multi": true,
@@ -51,13 +41,8 @@
         }
       },
       {
-        "id": "installJetbrainsMcp",
-        "message": "Register the JetBrains MCP server with installed agents? Recommended.",
-        "input": {
-          "type": "checkbox",
-          "label": "Register JetBrains MCP",
-          "default": true
-        },
+        "id": "jetbrainsMcp",
+        "message": "Register the JetBrains MCP server with the agents you installed skills for. Recommended for IntelliJ users. Click Skip to opt out.",
         "command": {
           "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) mcp-jetbrains -Agents \"${skillsAgents}\"",
           "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- mcp-jetbrains --agents \"${skillsAgents}\"",
@@ -65,18 +50,8 @@
         }
       },
       {
-        "id": "installContext7",
-        "message": "Register the Context7 MCP server (provides up-to-date library documentation)?",
-        "input": {
-          "type": "checkbox",
-          "label": "Register Context7 MCP",
-          "default": false
-        }
-      },
-      {
         "id": "context7Key",
-        "runIf": "installContext7",
-        "message": "Enter your Context7 API key. The key is sent to the MCP CLI and never stored by Studio.",
+        "message": "Register the Context7 MCP server (provides up-to-date library documentation). Enter your Context7 API key below or click Skip to opt out. The key is sent to the MCP CLI and never stored by Studio.",
         "input": {
           "type": "userInput",
           "regex": "^.{8,}$",
@@ -90,13 +65,8 @@
         }
       },
       {
-        "id": "installPlaywright",
-        "message": "Install Playwright? Requires npm to be installed on PATH.",
-        "input": {
-          "type": "checkbox",
-          "label": "Install Playwright",
-          "default": false
-        },
+        "id": "playwright",
+        "message": "Install Playwright testing skills. Requires npm to be installed on PATH. Click Skip to opt out.",
         "command": {
           "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) playwright -Agents \"${skillsAgents}\"",
           "macos":   "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- playwright --agents \"${skillsAgents}\"",
