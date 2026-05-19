@@ -2,21 +2,27 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/.studio/studio-meta-data.schema.json",
   "title": "Jmix Studio install-flow metadata",
-  "description": "Metadata consumed by Jmix Studio to drive the 'Configure AI Agents' wizard. Defines a sequence of typed-input steps; each step optionally executes a shell command assembled from collected values.",
+  "description": "Metadata consumed by Jmix Studio to drive the 'Configure AI Agents' wizard. Defines a sequence of multi-input steps; each step optionally executes a shell command assembled from collected input values.",
   "type": "object",
   "additionalProperties": true,
-  "required": ["install-flow"],
+  "required": [
+    "install-flow"
+  ],
   "properties": {
     "install-flow": {
       "type": "object",
       "description": "Top-level container for the wizard flow.",
-      "required": ["steps"],
+      "required": [
+        "steps"
+      ],
       "additionalProperties": false,
       "properties": {
         "steps": {
           "type": "array",
-          "description": "Steps shown to the user in order. Steps with a 'runIf' that points to a falsy earlier step are skipped entirely.",
-          "items": { "$ref": "#/$defs/step" }
+          "description": "Steps shown to the user in order. Steps with a 'runIf' that points to a falsy earlier input id are skipped entirely.",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
         }
       }
     }
@@ -24,51 +30,69 @@
   "$defs": {
     "step": {
       "type": "object",
-      "description": "A single step of the install flow. Steps may have an input (to collect a value), a command (to execute), or both.",
+      "description": "A single step of the install flow. Steps may collect multiple inputs and optionally execute a shell command.",
       "additionalProperties": false,
-      "required": ["message"],
+      "required": [
+        "message"
+      ],
       "properties": {
         "id": {
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-          "description": "Unique step identifier. Used to substitute the collected value into other steps' commands via ${id}, and as the target of 'runIf'. Required if the step has 'input' or is referenced elsewhere."
+          "description": "Optional step identifier used for diagnostics and per-step state restoration. Command substitution uses input ids, not step ids."
         },
         "message": {
           "type": "string",
-          "description": "Header text shown above the input widget."
+          "description": "Header text shown above the inputs."
         },
         "runIf": {
           "type": "string",
-          "description": "If set, the step is rendered only when the value of the referenced earlier step is truthy. Falsy values: checkbox=false, options-multi=empty, userInput=blank."
+          "description": "If set, the step is rendered only when the referenced earlier input id has a truthy value. Falsy values: checkbox=false, options-multi=empty, userInput=blank."
         },
-        "input": {
-          "description": "Optional input widget shown to the user. Discriminated by 'type'.",
-          "oneOf": [
-            { "$ref": "#/$defs/inputUserInput" },
-            { "$ref": "#/$defs/inputOptions" },
-            { "$ref": "#/$defs/inputCheckbox" }
-          ]
+        "inputs": {
+          "type": "array",
+          "description": "Inputs collected from the user on this step. Each input has its own id used for ${id} command substitution.",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/inputUserInput"
+              },
+              {
+                "$ref": "#/$defs/inputOptions"
+              },
+              {
+                "$ref": "#/$defs/inputCheckbox"
+              }
+            ]
+          }
         },
         "command": {
           "$ref": "#/$defs/commandByOs",
-          "description": "Optional per-OS shell command run after the user confirms the step. Supports ${id} placeholders that reference values from earlier steps and the implicit ${JMIX_VERSION} placeholder. The command is skipped when the step's own input value is falsy."
+          "description": "Optional per-OS shell command. Supports ${id} placeholders that reference input ids (from this step or earlier) plus the implicit ${JMIX_VERSION} placeholder. The command is skipped when any input on this step has a falsy value."
         }
-      },
-      "allOf": [
-        {
-          "if": { "required": ["input"] },
-          "then": { "required": ["id"] }
-        }
-      ]
+      }
     },
-
     "inputUserInput": {
       "type": "object",
       "description": "Free-text input. Optionally validated against a regular expression.",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "type": { "const": "userInput" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional row prefix shown to the left of the text field."
+        },
+        "type": {
+          "const": "userInput"
+        },
         "regex": {
           "type": "string",
           "description": "Java regular expression. The full value must match (Regex.matches semantics)."
@@ -87,14 +111,28 @@
         }
       }
     },
-
     "inputOptions": {
       "type": "object",
       "description": "Choice between predefined values. Single-select renders as a combo box; multi-select renders as a check-box list.",
       "additionalProperties": false,
-      "required": ["type", "choices"],
+      "required": [
+        "id",
+        "type",
+        "choices"
+      ],
       "properties": {
-        "type": { "const": "options" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional row prefix shown to the left of the widget."
+        },
+        "type": {
+          "const": "options"
+        },
         "multi": {
           "type": "boolean",
           "default": false,
@@ -103,15 +141,19 @@
         "choices": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/optionsChoice" }
+          "items": {
+            "$ref": "#/$defs/optionsChoice"
+          }
         }
       }
     },
-
     "optionsChoice": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["value", "label"],
+      "required": [
+        "value",
+        "label"
+      ],
       "properties": {
         "value": {
           "type": "string",
@@ -128,17 +170,26 @@
         }
       }
     },
-
     "inputCheckbox": {
       "type": "object",
-      "description": "Single boolean toggle.",
+      "description": "Single boolean toggle. The 'label' field doubles as the text rendered next to the checkbox.",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "type": { "const": "checkbox" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
         "label": {
           "type": "string",
-          "description": "Label shown next to the checkbox."
+          "description": "Text shown next to the checkbox."
+        },
+        "type": {
+          "const": "checkbox"
         },
         "default": {
           "type": "boolean",
@@ -155,7 +206,6 @@
         }
       }
     },
-
     "commandByOs": {
       "type": "object",
       "description": "Per-OS shell command. The host OS is detected via SystemInfo and the corresponding entry is executed.",
