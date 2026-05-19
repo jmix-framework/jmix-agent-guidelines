@@ -214,6 +214,9 @@ The Jmix Gradle plugin detects the `@JmixGeneratedValue` UUID field during bytec
 
 **Always add a `@JmixGeneratedValue UUID` field to entities with numeric or user-assigned identifiers.**
 
+**Warning: never modify a `@JmixGeneratedValue` field after entity creation.**
+`BaseEntityEntry.hashCode()` reads the UUID field on every call. If the UUID changes after the entity has been placed in a hash-based collection — including `DataContext`'s internal `modifiedInstances` — the entity occupies two buckets simultaneously. On the next `save()`, `DataContext` iterates all buckets and submits the entity twice, producing a duplicate INSERT and a duplicate row in the database. No exception is thrown.
+
 ### 7. Over-fetching with _base in List Views
 
 `_base` loads **all** local attributes of an entity, all `@InstanceName` attributes, and all embedded objects. In a list view where a DataGrid displays only a few columns, this transfers far more data from the database than needed. The overhead grows with the number of entity attributes and the number of rows.
