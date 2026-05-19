@@ -551,7 +551,7 @@ function Invoke-CmdMcpContext7 {
 }
 
 # =================================================================
-# Playwright skills install (npm + playwright-cli)
+# Playwright install (npm + playwright-cli)
 # =================================================================
 
 function Install-PlaywrightForAgents {
@@ -708,7 +708,7 @@ function Invoke-Wizard {
     }
 
     # Step 5: Playwright
-    $sel = Read-AgentChoice -Label '[5/5] Install Playwright testing skills? (requires npm)' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[5/5] Install Playwright? (requires npm)' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
         try {
             Install-PlaywrightForAgents -Agents $sel

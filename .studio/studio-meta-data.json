@@ -91,10 +91,10 @@
       },
       {
         "id": "installPlaywright",
-        "message": "Install Playwright testing skills? Requires npm to be installed on PATH.",
+        "message": "Install Playwright? Requires npm to be installed on PATH.",
         "input": {
           "type": "checkbox",
-          "label": "Install Playwright skills",
+          "label": "Install Playwright",
           "default": false
         },
         "command": {

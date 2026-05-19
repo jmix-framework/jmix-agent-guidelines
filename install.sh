@@ -156,7 +156,7 @@ Usage:
   install.sh agents-md     [options]                             # install project guidelines
   install.sh mcp-jetbrains [options]                             # register JetBrains MCP
   install.sh mcp-context7  [options] [--context7-key KEY]        # register Context7 MCP
-  install.sh playwright    [options]                             # install Playwright testing skills
+  install.sh playwright    [options]                             # install Playwright
 
 Common options:
   --version V                Jmix version (e.g. 2.8.0). Optional. Best-matching
@@ -643,7 +643,7 @@ cmd_mcp_context7() {
 }
 
 # =================================================================
-# Playwright skills install (npm + playwright-cli)
+# Playwright install (npm + playwright-cli)
 # =================================================================
 
 cmd_playwright() {
@@ -837,7 +837,7 @@ cmd_wizard() {
     fi
 
     # Step 5: Playwright
-    sel="$(wizard_pick_agent '[5/5] Install Playwright testing skills? (requires npm)' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent '[5/5] Install Playwright? (requires npm)' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local pw_csv
         pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
