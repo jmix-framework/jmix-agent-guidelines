@@ -4,7 +4,7 @@
     "steps": [
       {
         "id": "skills",
-        "message": "Install Jmix skills for the selected agents. Choose whether to install into this project or the user home. <br>Click Skip to opt out.",
+        "message": "Install Jmix <code>skills</code> for the selected agents. <br>Choose whether to install into this project or the user home. <br>Click Skip to opt out.",
         "inputs": [
           {
             "id": "skillsScope",
@@ -59,7 +59,7 @@
       },
       {
         "id": "guidelines",
-        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / guidelines.md) to the project root for the selected agents. <br>Click Skip to leave the project as is.",
+        "message": "Add Jmix coding guidelines (<code>CLAUDE.md</code> / <code>AGENTS.md</code> / <code>guidelines.md</code>) to the project root for the selected agents. <br>Click Skip to leave the project as is.",
         "inputs": [
           {
             "id": "guidelinesAgents",
@@ -98,7 +98,7 @@
       },
       {
         "id": "jetbrainsMcp",
-        "message": "Register the JetBrains MCP server with the selected agents. Recommended for IntelliJ users. <br>Click Skip to opt out.",
+        "message": "Register the <code>JetBrains MCP</code> server with the selected agents. <br>Click Skip to opt out.",
         "inputs": [
           {
             "id": "jetbrainsMcpAgents",
@@ -137,7 +137,7 @@
       },
       {
         "id": "context7",
-        "message": "Register the Context7 MCP server (provides up-to-date library documentation) with the selected agents. <br>Enter your Context7 API key below or click Skip to opt out. The key is sent to the MCP CLI and never stored by Studio.",
+        "message": "Register the <code>Context7 MCP</code> server (provides up-to-date library documentation) with the selected agents. <br>Enter your Context7 API key below or click Skip to opt out. The key is sent to the MCP CLI and never stored by Studio.",
         "inputs": [
           {
             "id": "context7Agents",
@@ -184,7 +184,7 @@
       },
       {
         "id": "playwright",
-        "message": "Install Playwright testing skills for the selected agents. <br>Requires npm to be installed on PATH. <br>Click Skip to opt out.",
+        "message": "Install <code>Playwright</code> testing skills for the selected agents. <br>Requires <code>npm</code> to be installed on PATH. <br>Click Skip to opt out.",
         "inputs": [
           {
             "id": "playwrightAgents",
