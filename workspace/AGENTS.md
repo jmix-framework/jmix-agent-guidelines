@@ -24,6 +24,10 @@ Use the most specific skill for the task:
 - Adding or changing database schema: `jmix-create-liquibase-changelog`
 - Creating or changing resource roles: `jmix-create-resource-role`
 - Adding user-visible text or entity/enum captions: `jmix-add-i18n-keys`
+- Configuring fetch plans or fixing unfetched/N+1 loading issues: `jmix-configure-fetch-plan`
+- Creating DTO entities or UI-bound non-persistent models: `jmix-create-dto-entity`
+- Creating reusable Flow UI fragments or fragment renderers: `jmix-create-fragment`
+- Adding or changing tests: `jmix-create-test`
 
 If a tool-specific reference system is available, use it for API confirmation. Do not block work if such tools are unavailable.
 
@@ -67,6 +71,20 @@ For each new business operation:
 - Prefer `DataManager` for CRUD.
 - Keep UI notifications, dialogs, and components out of services.
 - Defaults for required persistent fields must work outside UI-only paths.
+
+For each DTO entity or UI-bound non-persistent model:
+
+- Use Jmix DTO metadata, not JPA annotations.
+- Provide a stable `@JmixId` when identity matters.
+- Add message keys when the model is shown in UI or exposed with localized captions.
+- Keep DTO entities out of Liquibase unless they are backed by an explicit custom persistence mechanism.
+
+For each reusable UI fragment:
+
+- Create both controller and XML descriptor.
+- Keep fragment XML self-contained or explicitly mark host-provided data components.
+- Use fragment-specific facets when needed.
+- Add message keys for user-visible fragment text.
 
 ## Validation Before Finishing
 
