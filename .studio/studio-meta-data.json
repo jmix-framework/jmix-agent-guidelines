@@ -24,7 +24,7 @@
           },
           {
             "id": "skillsAgents",
-            "label": "Targets",
+            "label": "Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -59,11 +59,11 @@
       },
       {
         "id": "guidelines",
-        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md) to the project root for the selected agents. Click Skip to leave the project as is.",
+        "message": "Add Jmix coding guidelines (CLAUDE.md / AGENTS.md / guidelines.md) to the project root for the selected agents. Click Skip to leave the project as is.",
         "inputs": [
           {
             "id": "guidelinesAgents",
-            "label": "Targets",
+            "label": "Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -102,7 +102,7 @@
         "inputs": [
           {
             "id": "jetbrainsMcpAgents",
-            "label": "Targets",
+            "label": "Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -141,7 +141,7 @@
         "inputs": [
           {
             "id": "context7Agents",
-            "label": "Targets",
+            "label": "Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -188,7 +188,7 @@
         "inputs": [
           {
             "id": "playwrightAgents",
-            "label": "Targets",
+            "label": "Agents",
             "type": "options",
             "multi": true,
             "choices": [
