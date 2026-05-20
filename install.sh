@@ -2,7 +2,7 @@
 # Jmix AI Agent Guidelines installer.
 #
 # Default (no subcommand) launches an interactive wizard that guides through:
-#   1. Installing Jmix skills globally for one or all agents.
+#   1. Installing Jmix skills (globally or into the project) for one or all agents.
 #   2. Adding project-level guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md).
 #   3. Registering the JetBrains MCP server with the agent.
 #   4. Registering the Context7 MCP server with the agent.
@@ -152,7 +152,7 @@ Jmix AI Agent Guidelines installer.
 
 Usage:
   install.sh [--version V] [--ref REF]                           # interactive wizard
-  install.sh skills        [options]                             # install global skills only
+  install.sh skills        [options] [--scope global|local]      # install skills
   install.sh agents-md     [options]                             # install project guidelines
   install.sh mcp-jetbrains [options]                             # register JetBrains MCP
   install.sh mcp-context7  [options] [--context7-key KEY]        # register Context7 MCP
@@ -171,6 +171,12 @@ Common options:
                              <name>.bak-<timestamp> instead of deleting them.
                              Off by default.
   -h, --help                 Show this help.
+
+skills options:
+  --scope global|local   Where to install skills. "global" (default) writes to
+                         the per-agent user-home dir; "local" writes to the
+                         matching dir under the current project (e.g.
+                         ./.claude/skills).
 
 mcp-context7 options:
   --context7-key K   Context7 API key. Prompted interactively when missing.
@@ -302,14 +308,40 @@ ensure_tarball() {
 # skills install (global, per agent)
 # =================================================================
 
-skills_target_for_agent() {
-    case "$1" in
-        claude)   printf '%s' "${HOME}/.claude/skills" ;;
-        codex)    printf '%s' "${HOME}/.codex/skills" ;;
-        opencode) printf '%s' "${HOME}/.config/opencode/skills" ;;
-        junie)    printf '%s' "${HOME}/.junie/skills" ;;
-        *) die "unknown agent '$1'" ;;
+# Validates the install scope. Emits the normalized value ("global"/"local").
+# $1 - raw scope string (may be empty -> defaults to global)
+parse_scope() {
+    case "${1:-global}" in
+        global|local) printf '%s' "${1:-global}" ;;
+        *) die "skills: --scope must be 'global' or 'local' (got '$1')" ;;
     esac
+}
+
+# Resolves the skills target dir for an agent.
+# $1 - agent
+# $2 - scope: "global" (user home, default) or "local" (project working dir)
+skills_target_for_agent() {
+    local agent="$1"
+    local scope="${2:-global}"
+    if [ "$scope" = "local" ]; then
+        local base
+        base="$(pwd -P)"
+        case "$agent" in
+            claude)   printf '%s/.claude/skills' "$base" ;;
+            codex)    printf '%s/.codex/skills' "$base" ;;
+            opencode) printf '%s/.opencode/skills' "$base" ;;
+            junie)    printf '%s/.junie/skills' "$base" ;;
+            *) die "unknown agent '$agent'" ;;
+        esac
+    else
+        case "$agent" in
+            claude)   printf '%s' "${HOME}/.claude/skills" ;;
+            codex)    printf '%s' "${HOME}/.codex/skills" ;;
+            opencode) printf '%s' "${HOME}/.config/opencode/skills" ;;
+            junie)    printf '%s' "${HOME}/.junie/skills" ;;
+            *) die "unknown agent '$agent'" ;;
+        esac
+    fi
 }
 
 agent_label() {
@@ -324,13 +356,14 @@ agent_label() {
 
 install_skills_for_agent() {
     local agent="$1"
+    local scope="${2:-global}"
     local target_dir
-    target_dir="$(skills_target_for_agent "$agent")"
+    target_dir="$(skills_target_for_agent "$agent" "$scope")"
     local label
     label="$(agent_label "$agent")"
 
     log ""
-    log "Installing skills for ${label} into ${target_dir}"
+    log "Installing ${scope} skills for ${label} into ${target_dir}"
     mkdir -p "$target_dir" || die "cannot write to ${target_dir}: mkdir failed"
 
     local count=0
@@ -347,12 +380,16 @@ install_skills_for_agent() {
 
 cmd_skills() {
     local agents_csv=""
+    local scope="global"
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
                 agents_csv="$2"; shift 2 ;;
+            --scope)
+                [ $# -ge 2 ] || die "--scope requires an argument"
+                scope="$2"; shift 2 ;;
             --backup-existing-files)
                 BACKUP_EXISTING=1; shift ;;
             --version)
@@ -368,15 +405,16 @@ cmd_skills() {
 
     local agents
     agents="$(parse_agents_csv "$agents_csv" "skills")"
+    scope="$(parse_scope "$scope")"
 
     ensure_tarball
 
     local agent
     for agent in $agents; do
-        install_skills_for_agent "$agent"
+        install_skills_for_agent "$agent" "$scope"
     done
     log ""
-    log "Done. Installed skills for: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
+    log "Done. Installed ${scope} skills for: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
 }
 
 # =================================================================
@@ -784,14 +822,17 @@ cmd_wizard() {
 
     # Step 1: skills
     local sel
-    sel="$(wizard_pick_agent '[1/5] Install Jmix skills globally?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent '[1/5] Install Jmix skills?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
+        local scope_answer scope="global"
+        scope_answer="$(prompt 'Install scope: (g)lobal user home or (l)ocal project dir' 'g')"
+        case "$scope_answer" in l|L|local|LOCAL) scope="local" ;; esac
         ensure_tarball
         local agent
         for agent in $sel; do
-            install_skills_for_agent "$agent" || true
+            install_skills_for_agent "$agent" "$scope" || true
         done
-        summary_skills="$sel"
+        summary_skills="$sel (${scope})"
     fi
 
     # Step 2: agents-md

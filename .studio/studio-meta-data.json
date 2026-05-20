@@ -4,8 +4,24 @@
     "steps": [
       {
         "id": "skills",
-        "message": "Install Jmix skills globally for the selected agents. Click Skip to opt out.",
+        "message": "Install Jmix skills for the selected agents. Choose whether to install into this project or the user home. Click Skip to opt out.",
         "inputs": [
+          {
+            "id": "skillsScope",
+            "label": "Install to",
+            "type": "options",
+            "choices": [
+              {
+                "value": "local",
+                "label": "Project (local)",
+                "default": true
+              },
+              {
+                "value": "global",
+                "label": "User home (global)"
+              }
+            ]
+          },
           {
             "id": "skillsAgents",
             "label": "Targets",
@@ -36,9 +52,9 @@
           }
         ],
         "command": {
-          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) skills -Agents \"${skillsAgents}\" -Version \"${JMIX_VERSION}\"",
-          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --version \"${JMIX_VERSION}\"",
-          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --version \"${JMIX_VERSION}\""
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) skills -Agents \"${skillsAgents}\" -Scope \"${skillsScope}\" -Version \"${JMIX_VERSION}\"",
+          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\" --version \"${JMIX_VERSION}\"",
+          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\" --version \"${JMIX_VERSION}\""
         }
       },
       {

@@ -36,7 +36,7 @@ Use these to run a single step without the wizard. Every subcommand takes the
 same `--agents CSV` flag:
 
 ```bash
-install.sh skills        --agents CSV   [--version V]
+install.sh skills        --agents CSV   [--scope global|local] [--version V]
 install.sh agents-md     --agents CSV   [--version V]
 install.sh mcp-jetbrains --agents CSV
 install.sh mcp-context7  --agents CSV   [--context7-key KEY]
@@ -54,10 +54,11 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                           |
 | `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                      |
 | `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                        |
+| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs into the per-agent user-home dir; `local` installs into the project (e.g. `./.claude/skills`). |
 | `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                       |
 | `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.          |
 
-> The automatic installer covers global skills, project guidelines, MCP server registration, and Playwright testing skills. The Playwright step shells out to `npm` and `playwright-cli`, so both must be available on PATH.
+> The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step shells out to `npm` and `playwright-cli`, so both must be available on PATH.
 
 ## Manual Installation
 

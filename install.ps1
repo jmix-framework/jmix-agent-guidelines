@@ -5,13 +5,13 @@
 .DESCRIPTION
     Default invocation (no subcommand) launches an interactive wizard that
     guides through:
-      1. Installing Jmix skills globally for one or all agents.
+      1. Installing Jmix skills (globally or into the project) for one or all agents.
       2. Adding project-level guidelines (CLAUDE.md / AGENTS.md / .junie\guidelines.md).
       3. Registering the JetBrains MCP server with the agent.
       4. Registering the Context7 MCP server with the agent.
 
     Subcommands are available for non-interactive use:
-      install.ps1 skills        -Agents CSV [-Version V] [-Ref REF]
+      install.ps1 skills        -Agents CSV [-Scope global|local] [-Version V] [-Ref REF]
       install.ps1 agents-md     -Agents CSV [-Version V] [-Ref REF]
       install.ps1 mcp-jetbrains -Agents CSV
       install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
@@ -35,6 +35,11 @@
     accepted (e.g. "claude"). Required by every subcommand. Valid values:
     claude, codex, opencode, junie.
 
+.PARAMETER Scope
+    Skills install scope: "global" (default) writes to the per-agent user-home
+    dir; "local" writes to the matching dir under the current project (e.g.
+    .\.claude\skills). Applies to the `skills` subcommand.
+
 .PARAMETER Context7Key
     Context7 API key (mcp-context7). Prompted interactively when missing.
 
@@ -56,6 +61,7 @@ param(
     [string]$Version = '',
     [string]$Ref = 'main',
     [string]$Agents = '',
+    [string]$Scope = '',
     [string]$Context7Key = '',
     [switch]$BackupExistingFiles
 )
@@ -318,24 +324,51 @@ function Initialize-Tarball {
 # skills install (global, per agent)
 # =================================================================
 
+function Resolve-Scope {
+    param([string]$Scope)
+    if ([string]::IsNullOrWhiteSpace($Scope)) { return 'global' }
+    switch ($Scope) {
+        'global' { return 'global' }
+        'local'  { return 'local' }
+        default  { Write-ErrAndExit "skills: -Scope must be 'global' or 'local' (got '$Scope')" }
+    }
+}
+
 function Get-SkillsTarget {
-    param([string]$Agent)
-    switch ($Agent) {
-        'claude'   { Join-Path $HOME '.claude/skills' }
-        'codex'    { Join-Path $HOME '.codex/skills' }
-        'opencode' { Join-Path $HOME '.config/opencode/skills' }
-        'junie'    { Join-Path $HOME '.junie/skills' }
-        default    { throw "unknown agent '$Agent'" }
+    param(
+        [string]$Agent,
+        [string]$Scope = 'global'
+    )
+    if ($Scope -eq 'local') {
+        $base = (Get-Location).Path
+        switch ($Agent) {
+            'claude'   { Join-Path $base '.claude/skills' }
+            'codex'    { Join-Path $base '.codex/skills' }
+            'opencode' { Join-Path $base '.opencode/skills' }
+            'junie'    { Join-Path $base '.junie/skills' }
+            default    { throw "unknown agent '$Agent'" }
+        }
+    } else {
+        switch ($Agent) {
+            'claude'   { Join-Path $HOME '.claude/skills' }
+            'codex'    { Join-Path $HOME '.codex/skills' }
+            'opencode' { Join-Path $HOME '.config/opencode/skills' }
+            'junie'    { Join-Path $HOME '.junie/skills' }
+            default    { throw "unknown agent '$Agent'" }
+        }
     }
 }
 
 function Install-SkillsForAgent {
-    param([string]$Agent)
-    $target = Get-SkillsTarget -Agent $Agent
+    param(
+        [string]$Agent,
+        [string]$Scope = 'global'
+    )
+    $target = Get-SkillsTarget -Agent $Agent -Scope $Scope
     $label  = Get-AgentLabel -Agent $Agent
 
     Write-Info ''
-    Write-Info "Installing skills for $label into $target"
+    Write-Info "Installing $Scope skills for $label into $target"
     if (-not (Test-Path $target)) {
         New-Item -ItemType Directory -Path $target -Force | Out-Null
     }
@@ -351,12 +384,13 @@ function Install-SkillsForAgent {
 
 function Invoke-CmdSkills {
     $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'skills'
+    $resolvedScope = Resolve-Scope -Scope $Scope
     Initialize-Tarball
     foreach ($a in $agents) {
-        Install-SkillsForAgent -Agent $a
+        Install-SkillsForAgent -Agent $a -Scope $resolvedScope
     }
     Write-Info ''
-    Write-Info "Done. Installed skills for: $($agents -join ', ')"
+    Write-Info "Done. Installed $resolvedScope skills for: $($agents -join ', ')"
 }
 
 # =================================================================
@@ -660,13 +694,15 @@ function Invoke-Wizard {
     }
 
     # Step 1: skills
-    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills globally?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
+        $scopeAnswer = Read-Prompt -Message 'Install scope: (g)lobal user home or (l)ocal project dir' -Default 'g'
+        $resolvedScope = if ($scopeAnswer -match '^(l|local)$') { 'local' } else { 'global' }
         Initialize-Tarball
         foreach ($a in $sel) {
-            try { Install-SkillsForAgent -Agent $a } catch { Write-Info "error: $($_.Exception.Message)" }
+            try { Install-SkillsForAgent -Agent $a -Scope $resolvedScope } catch { Write-Info "error: $($_.Exception.Message)" }
         }
-        $summaryStrings.skills = $sel -join ', '
+        $summaryStrings.skills = "$($sel -join ', ') ($resolvedScope)"
     }
 
     # Step 2: agents-md
