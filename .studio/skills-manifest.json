@@ -1,0 +1,35 @@
+{
+  "agents-dirs": {
+    "global": [
+      ".claude/skills",
+      ".codex/skills",
+      ".config/opencode/skills",
+      ".junie/skills"
+    ],
+    "local": [
+      ".claude/skills",
+      ".codex/skills",
+      ".opencode/skills",
+      ".junie/skills"
+    ]
+  },
+  "schemaVersion": 1,
+  "versions": {
+    "v2": {
+      "sha256": "d2d53b6cc53b623c51d05611fc48908342d4cdda2afeefe5289d69eac3c4c2a7",
+      "skills": [
+        "jmix-dto",
+        "jmix-entities",
+        "jmix-enums",
+        "jmix-fetch-plans",
+        "jmix-fragments",
+        "jmix-i18n",
+        "jmix-liquibase",
+        "jmix-security-roles",
+        "jmix-services",
+        "jmix-testing",
+        "jmix-views"
+      ]
+    }
+  }
+}
