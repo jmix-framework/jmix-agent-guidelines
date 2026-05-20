@@ -8,17 +8,17 @@
         "inputs": [
           {
             "id": "skillsScope",
-            "label": "Install to",
+            "label": "Installation scope",
             "type": "options",
             "choices": [
               {
                 "value": "local",
-                "label": "Project (local)",
+                "label": "Local (project)",
                 "default": true
               },
               {
                 "value": "global",
-                "label": "User home (global)"
+                "label": "Global (user home)"
               }
             ]
           },
