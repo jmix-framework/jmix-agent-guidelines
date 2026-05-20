@@ -6,8 +6,9 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-- `v2/` contains the guidelines for Jmix 2.x.
+- `workspace/` contains the ready-to-copy guidelines workspace for Jmix 2.x.
   - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
+  - `VERSION`: Profile version.
   - `skills/`: A collection of folders, each containing:
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
       - Optional subdirectories with examples or other materials.
@@ -16,11 +17,11 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 To enable these guidelines for your AI agent, follow the steps below.
 
-Take the files from the `v2/` directory if you are using Jmix 2.x.
+Take the files from the `workspace/` directory if you are using Jmix 2.x.
 
 ### 1. Project Guidelines
 
-Copy the `AGENTS.md` file from this repository to the root of your Jmix application project. Depending on the agent you are using, you may need to rename it or place it in a specific folder:
+Copy the `workspace/AGENTS.md` file from this repository to the root of your Jmix application project. Depending on the agent you are using, you may need to rename it or place it in a specific folder:
 
 - [Claude Code](https://code.claude.com/docs): Copy to the project root and rename to `CLAUDE.md`.
 - [Codex](https://developers.openai.com/codex/cli): Copy to the project root and keep as `AGENTS.md`.
@@ -29,9 +30,9 @@ Copy the `AGENTS.md` file from this repository to the root of your Jmix applicat
 
 ### 2. Agent Skills
 
-The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally.
+The `workspace/skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally.
 
-Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your home directory:
+Copy or symlink the content of the `workspace/skills/` subdirectory to the folder recognized by your agent in your home directory:
 
 | Agent       | Skills Folder Path           |
 |:------------|:-----------------------------|
@@ -45,7 +46,7 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 Using symlink for Claude Code:
 ```bash
 mkdir -p ~/.claude/skills
-ln -s /path/to/jmix-agent-guidelines/v2/skills/* ~/.claude/skills/
+ln -s /path/to/jmix-agent-guidelines/workspace/skills/* ~/.claude/skills/
 ```
 
 #### Agent Conventions Summary
