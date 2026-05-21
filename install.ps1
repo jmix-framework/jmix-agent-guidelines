@@ -680,12 +680,12 @@ function Read-AgentChoice {
     )
     Write-Info ''
     Write-Info $Label
+    Write-Output '  a) For all agents'
     $i = 1
     foreach ($opt in $Options) {
         Write-Output ("  {0}) {1}" -f $i, (Get-AgentLabel -Agent $opt))
         $i++
     }
-    Write-Output ("  {0}) For all agents" -f $i)
     Write-Output '  s) Skip'
 
     $answer = Read-Prompt -Message 'Choice' -Default $Default
@@ -696,7 +696,6 @@ function Read-AgentChoice {
         return @('skip')
     }
     $num = [int]$answer
-    if ($num -eq $i) { return $Options }
     if ($num -ge 1 -and $num -le $Options.Length) { return @($Options[$num - 1]) }
     Write-Info "Unrecognized choice '$answer'. Skipping."
     return @('skip')
@@ -718,8 +717,8 @@ function Invoke-Wizard {
     # Step 1: skills
     $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents -Default 'all'
     if ($sel[0] -ne 'skip') {
-        $scopeAnswer = Read-Prompt -Message 'Install scope: (g)lobal user home or (l)ocal project dir' -Default 'g'
-        $resolvedScope = if ($scopeAnswer -match '^(l|local)$') { 'local' } else { 'global' }
+        $scopeAnswer = Read-Prompt -Message 'Install scope: (l)ocal project dir or (g)lobal user home' -Default 'l'
+        $resolvedScope = if ($scopeAnswer -match '^(g|global)$') { 'global' } else { 'local' }
         Initialize-Tarball
         try {
             if ($resolvedScope -eq 'local') {
@@ -746,7 +745,7 @@ function Invoke-Wizard {
     }
 
     # Step 2: agents-md
-    $sel = Read-AgentChoice -Label '[2/5] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[2/5] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents -Default 'all'
     if ($sel[0] -ne 'skip') {
         if (Read-YesNo -Message "Target directory: $((Get-Location).Path). Proceed?" -Default 'y') {
             Initialize-Tarball

@@ -777,17 +777,16 @@ wizard_pick_agent() {
     {
         log ""
         log "$prompt_label"
+        printf '  a) For all agents\n'
         local i=1
         local opt
         for opt in $options; do
             printf '  %d) %s\n' "$i" "$(agent_label "$opt")"
             i=$((i + 1))
         done
-        printf '  %d) For all agents\n' "$i"
         printf '  s) Skip\n'
     } >&2
 
-    local total=$((i))
     local answer
     answer="$(prompt 'Choice' "$default_choice")"
     case "$answer" in
@@ -797,10 +796,6 @@ wizard_pick_agent() {
     if ! printf '%s' "$answer" | grep -Eq '^[0-9]+$'; then
         log "Unrecognized choice '${answer}'. Skipping." >&2
         printf 'skip'
-        return 0
-    fi
-    if [ "$answer" -eq "$total" ]; then
-        printf '%s' "$options"
         return 0
     fi
     local idx=1
@@ -845,9 +840,9 @@ cmd_wizard() {
     local sel
     sel="$(wizard_pick_agent all '[1/5] Install Jmix skills?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
-        local scope_answer scope="global"
-        scope_answer="$(prompt 'Install scope: (g)lobal user home or (l)ocal project dir' 'g')"
-        case "$scope_answer" in l|L|local|LOCAL) scope="local" ;; esac
+        local scope_answer scope="local"
+        scope_answer="$(prompt 'Install scope: (l)ocal project dir or (g)lobal user home' 'l')"
+        case "$scope_answer" in g|G|global|GLOBAL) scope="global" ;; esac
         ensure_tarball
         local root store_dir
         if [ "$scope" = "local" ]; then
@@ -868,7 +863,7 @@ cmd_wizard() {
     fi
 
     # Step 2: agents-md
-    sel="$(wizard_pick_agent skip '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent all '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         if prompt_yes_no "Target directory: $(pwd -P). Proceed?" "y"; then
             ensure_tarball
