@@ -14,7 +14,8 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Quick Install
 
-A single command launches an interactive wizard that walks through every setup step: installing global skills for one or more agents, adding the project guideline file (`CLAUDE.md` / `AGENTS.md` / `.junie/guidelines.md`) to the project root, and registering the JetBrains and Context7 MCP servers.
+A single command launches an interactive wizard that walks through every setup step: 
+installing skills, adding guidelines registering the recommended MCP servers.
 
 **macOS / Linux:**
 
@@ -28,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guideline
 iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
 ```
 
-In Jmix Studio plugin, the same wizard is available from the **Configure AI Agents for Jmix** action.
+In Jmix Studio plugin, the same wizard is available from the **Jmix AI Agents Toolkit** action.
 
 ### Non-Interactive Subcommands
 
