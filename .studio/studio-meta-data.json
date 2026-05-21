@@ -4,6 +4,7 @@
     "steps": [
       {
         "id": "skills",
+        "title": "Skills",
         "message": "Install Jmix <code>skills</code> for the selected agents. <br>Choose whether to install into this project or the user home. <br>Click <i>Skip</i> to opt out.",
         "inputs": [
           {
@@ -59,6 +60,7 @@
       },
       {
         "id": "guidelines",
+        "title": "Guidelines",
         "message": "Add Jmix coding guidelines (<code>CLAUDE.md</code> / <code>AGENTS.md</code> / <code>guidelines.md</code>) to the project root for the selected agents. <br>Click <i>Skip</i> to leave the project as is.",
         "inputs": [
           {
@@ -98,6 +100,7 @@
       },
       {
         "id": "jetbrainsMcp",
+        "title": "JetBrains MCP",
         "message": "Register the <code>JetBrains MCP</code> server with the selected agents. <br>Click <i>Skip</i> to opt out.",
         "inputs": [
           {
@@ -137,6 +140,7 @@
       },
       {
         "id": "context7",
+        "title": "Context7 MCP",
         "message": "Register the <code>Context7 MCP</code> server (provides up-to-date library documentation) with the selected agents. <br>Enter your Context7 API key below or Click <i>Skip</i> to opt out. <br>The key is sent to the MCP CLI and never stored by Studio.",
         "inputs": [
           {
@@ -184,6 +188,7 @@
       },
       {
         "id": "playwright",
+        "title": "Playwright",
         "message": "Install <code>Playwright</code> testing skills for the selected agents. <br>Requires <b>npm</b> to be installed on PATH. <br>Click <i>Skip</i> to opt out.",
         "inputs": [
           {

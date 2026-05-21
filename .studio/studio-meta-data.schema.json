@@ -33,6 +33,7 @@
       "description": "A single step of the install flow. Steps may collect multiple inputs and optionally execute a shell command.",
       "additionalProperties": false,
       "required": [
+        "title",
         "message"
       ],
       "properties": {
@@ -40,6 +41,10 @@
           "type": "string",
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
           "description": "Optional step identifier used for diagnostics and per-step state restoration. Command substitution uses input ids, not step ids."
+        },
+        "title": {
+          "type": "string",
+          "description": "Main step title shown on the top."
         },
         "message": {
           "type": "string",
