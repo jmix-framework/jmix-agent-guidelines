@@ -25,7 +25,7 @@
           },
           {
             "id": "skillsAgents",
-            "label": "Agents",
+            "label": "🤖 Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -65,7 +65,7 @@
         "inputs": [
           {
             "id": "guidelinesAgents",
-            "label": "Agents",
+            "label": "\uD83E\uDD16 Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -105,7 +105,7 @@
         "inputs": [
           {
             "id": "jetbrainsMcpAgents",
-            "label": "Agents",
+            "label": "\uD83E\uDD16 Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -145,7 +145,7 @@
         "inputs": [
           {
             "id": "context7Agents",
-            "label": "Agents",
+            "label": "\uD83E\uDD16 Agents",
             "type": "options",
             "multi": true,
             "choices": [
@@ -193,7 +193,7 @@
         "inputs": [
           {
             "id": "playwrightAgents",
-            "label": "Agents",
+            "label": "\uD83E\uDD16 Agents",
             "type": "options",
             "multi": true,
             "choices": [
