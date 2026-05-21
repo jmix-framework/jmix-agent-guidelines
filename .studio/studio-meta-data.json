@@ -141,7 +141,7 @@
       {
         "id": "context7",
         "title": "Context7 MCP",
-        "message": "\uD83D\uDD0C Register the <code>Context7 MCP</code> server (provides up-to-date library documentation) with the selected agents. <br>🔑 Enter your Context7 API key below. <br>🛡️ The key is sent to the MCP CLI and never stored by Studio. <br>⏭\uFE0F Click <i>Skip</i> to opt out.",
+        "message": "\uD83D\uDD0C Register the <code>Context7 MCP</code> server with the selected agents. <br>\uD83C\uDF10 You can get key on <a href=\"https://context7.com\" target=\"_blank\">context7.com</a>. Your key is sent to the MCP CLI and never stored by Studio. <br>⏭\uFE0F Click <i>Skip</i> to opt out.",
         "inputs": [
           {
             "id": "context7Agents",
@@ -173,7 +173,7 @@
           },
           {
             "id": "context7Key",
-            "label": "API key",
+            "label": "\uD83D\uDD11 API key",
             "type": "userInput",
             "regex": "^.{8,}$",
             "errorMessage": "Context7 API key must be at least 8 characters.",
