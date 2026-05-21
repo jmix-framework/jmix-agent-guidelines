@@ -73,4 +73,3 @@ public void setType(TransactionType type) {
 - Storing display labels as ids.
 - `ordinal()` or enum `.name()` persistence.
 - Missing enum message keys.
-
