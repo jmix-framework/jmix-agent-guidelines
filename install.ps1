@@ -675,7 +675,8 @@ function Invoke-CmdPlaywright {
 function Read-AgentChoice {
     param(
         [string]$Label,
-        [string[]]$Options
+        [string[]]$Options,
+        [string]$Default = 'skip'
     )
     Write-Info ''
     Write-Info $Label
@@ -687,8 +688,9 @@ function Read-AgentChoice {
     Write-Output ("  {0}) For all agents" -f $i)
     Write-Output '  s) Skip'
 
-    $answer = Read-Prompt -Message 'Choice' -Default 's'
+    $answer = Read-Prompt -Message 'Choice' -Default $Default
     if ($answer -match '^(s|skip)$') { return @('skip') }
+    if ($answer -match '^(a|all)$') { return $Options }
     if ($answer -notmatch '^\d+$') {
         Write-Info "Unrecognized choice '$answer'. Skipping."
         return @('skip')
@@ -701,7 +703,7 @@ function Read-AgentChoice {
 }
 
 function Invoke-Wizard {
-    Write-Info '=== Jmix AI Agent Guidelines - Setup ==='
+    Write-Info '=== Jmix AI Agents Toolkit ==='
     if ($Version) { Write-Info "Jmix version: $Version" }
     Write-Info "Working directory: $((Get-Location).Path)"
 
@@ -714,7 +716,7 @@ function Invoke-Wizard {
     }
 
     # Step 1: skills
-    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents -Default 'all'
     if ($sel[0] -ne 'skip') {
         $scopeAnswer = Read-Prompt -Message 'Install scope: (g)lobal user home or (l)ocal project dir' -Default 'g'
         $resolvedScope = if ($scopeAnswer -match '^(l|local)$') { 'local' } else { 'global' }

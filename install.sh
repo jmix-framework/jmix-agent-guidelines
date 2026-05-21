@@ -768,6 +768,8 @@ cmd_playwright() {
 # =================================================================
 
 wizard_pick_agent() {
+    local default_choice="$1"
+    shift
     local prompt_label="$1"
     shift
     local options="$*"
@@ -787,9 +789,10 @@ wizard_pick_agent() {
 
     local total=$((i))
     local answer
-    answer="$(prompt 'Choice' 's')"
+    answer="$(prompt 'Choice' "$default_choice")"
     case "$answer" in
         s|S|skip|SKIP) printf 'skip'; return 0 ;;
+        a|A|all|ALL) printf '%s' "$options"; return 0 ;;
     esac
     if ! printf '%s' "$answer" | grep -Eq '^[0-9]+$'; then
         log "Unrecognized choice '${answer}'. Skipping." >&2
@@ -828,7 +831,7 @@ cmd_wizard() {
         esac
     done
 
-    log "=== Jmix AI Agent Guidelines - Setup ==="
+    log "=== Jmix AI Agents Toolkit ==="
     [ -n "$VERSION" ] && log "Jmix version: ${VERSION}"
     log "Working directory: $(pwd -P)"
 
@@ -840,7 +843,7 @@ cmd_wizard() {
 
     # Step 1: skills
     local sel
-    sel="$(wizard_pick_agent '[1/5] Install Jmix skills?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent all '[1/5] Install Jmix skills?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local scope_answer scope="global"
         scope_answer="$(prompt 'Install scope: (g)lobal user home or (l)ocal project dir' 'g')"
@@ -865,7 +868,7 @@ cmd_wizard() {
     fi
 
     # Step 2: agents-md
-    sel="$(wizard_pick_agent '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent skip '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         if prompt_yes_no "Target directory: $(pwd -P). Proceed?" "y"; then
             ensure_tarball
@@ -880,7 +883,7 @@ cmd_wizard() {
     fi
 
     # Step 3: JetBrains MCP
-    sel="$(wizard_pick_agent '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
+    sel="$(wizard_pick_agent skip '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local agent
         for agent in $sel; do
@@ -890,7 +893,7 @@ cmd_wizard() {
     fi
 
     # Step 4: Context7 MCP
-    sel="$(wizard_pick_agent '[4/5] Connect agent to library docs via Context7 MCP?' $CONTEXT7_AGENTS)"
+    sel="$(wizard_pick_agent skip '[4/5] Connect agent to library docs via Context7 MCP?' $CONTEXT7_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local key
         key="$(prompt 'Context7 API key' '')"
@@ -907,7 +910,7 @@ cmd_wizard() {
     fi
 
     # Step 5: Playwright
-    sel="$(wizard_pick_agent '[5/5] Install Playwright? (requires npm)' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npm)' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local pw_csv
         pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
