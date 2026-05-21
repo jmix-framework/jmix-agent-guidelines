@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Jmix AI Agent Guidelines installer.
+    Jmix AI Agents Toolkit installer.
 
 .DESCRIPTION
     Default invocation (no subcommand) launches an interactive wizard that
@@ -382,6 +382,17 @@ function Install-SkillsToStore {
     }
 }
 
+# Per-skill symlinks: link each store skill folder into the agent skills dir,
+# so Jmix skills coexist with other skills already present there.
+function New-SkillSymlinks {
+    param([string]$AgentDir, [string]$StoreDir)
+    if (-not (Test-Path $AgentDir)) { New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null }
+    foreach ($skill in Get-ChildItem -Path $StoreDir -Directory) {
+        $link = Join-Path $AgentDir $skill.Name
+        New-DirSymlink -Link $link -Target $skill.FullName
+    }
+}
+
 function Invoke-CmdSkills {
     $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'skills'
     $resolvedScope = Resolve-Scope -Scope $Scope
@@ -398,15 +409,15 @@ function Invoke-CmdSkills {
     Install-SkillsToStore -StoreDir $storeDir
 
     Write-Info ''
-    Write-Info 'Linking agent skill dirs to the store'
+    Write-Info 'Linking store skills into agent dirs'
     $seen = @{}
     foreach ($a in $agents) {
         $rel = Get-AgentSymlinkRel -Agent $a
         if ($seen.ContainsKey($rel)) { continue }
         $seen[$rel] = $true
-        $link = Join-Path $root $rel
-        New-DirSymlink -Link $link -Target $storeDir
-        Write-Info "  Linked: $link -> $storeDir"
+        $agentDir = Join-Path $root $rel
+        New-SkillSymlinks -AgentDir $agentDir -StoreDir $storeDir
+        Write-Info "  Linked skills into $agentDir"
     }
 
     Write-Info ''
@@ -736,9 +747,9 @@ function Invoke-Wizard {
                 $rel = Get-AgentSymlinkRel -Agent $a
                 if ($wizSeen.ContainsKey($rel)) { continue }
                 $wizSeen[$rel] = $true
-                $link = Join-Path $wizRoot $rel
-                New-DirSymlink -Link $link -Target $wizStoreDir
-                Write-Info "  Linked: $link -> $wizStoreDir"
+                $agentDir = Join-Path $wizRoot $rel
+                New-SkillSymlinks -AgentDir $agentDir -StoreDir $wizStoreDir
+                Write-Info "  Linked skills into $agentDir"
             }
         } catch { Write-Info "error: $($_.Exception.Message)" }
         $summaryStrings.skills = "$($sel -join ', ') ($resolvedScope)"

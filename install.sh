@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Jmix AI Agent Guidelines installer.
+# Jmix AI Agents Toolkit installer.
 #
 # Default (no subcommand) launches an interactive wizard that guides through:
 #   1. Installing Jmix skills (globally or into the project) for one or all agents.
@@ -148,7 +148,7 @@ prompt_yes_no() {
 
 usage() {
     cat <<'EOF'
-Jmix AI Agent Guidelines installer.
+Jmix AI Agents Toolkit installer.
 
 Usage:
   install.sh [--version V] [--ref REF]                           # interactive wizard
@@ -365,6 +365,22 @@ install_skills_to_store() {
     done
 }
 
+# Per-skill symlinks: link each store skill folder into the agent skills dir,
+# so Jmix skills coexist with other skills already present there.
+# $1 - agent skills dir (kept as a real dir)
+# $2 - store dir holding the skill folders
+link_skills_into_dir() {
+    local agent_dir="$1"
+    local store_dir="$2"
+    mkdir -p "$agent_dir" || die "cannot create ${agent_dir}"
+    local skill name
+    for skill in "$store_dir"/*/; do
+        [ -d "$skill" ] || continue
+        name="$(basename "$skill")"
+        create_symlink "${agent_dir}/${name}" "${store_dir}/${name}"
+    done
+}
+
 agent_label() {
     case "$1" in
         claude)   printf 'Claude Code' ;;
@@ -418,17 +434,17 @@ cmd_skills() {
     install_skills_to_store "$store_dir"
 
     log ""
-    log "Linking agent skill dirs to the store"
-    local agent rel link seen=" "
+    log "Linking store skills into agent dirs"
+    local agent rel agent_dir seen=" "
     for agent in $agents; do
         rel="$(agent_symlink_rel "$agent")"
         case "$seen" in
             *" ${rel} "*) continue ;;
         esac
         seen="${seen}${rel} "
-        link="${root}/${rel}"
-        create_symlink "$link" "$store_dir"
-        log "  Linked: ${link} -> ${store_dir}"
+        agent_dir="${root}/${rel}"
+        link_skills_into_dir "$agent_dir" "$store_dir"
+        log "  Linked skills into ${agent_dir}"
     done
 
     log ""
@@ -851,13 +867,13 @@ cmd_wizard() {
             root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
         fi
         install_skills_to_store "$store_dir" || true
-        local agent rel link seen=" "
+        local agent rel agent_dir seen=" "
         for agent in $sel; do
             rel="$(agent_symlink_rel "$agent")"
             case "$seen" in *" ${rel} "*) continue ;; esac
             seen="${seen}${rel} "
-            link="${root}/${rel}"
-            create_symlink "$link" "$store_dir" || true
+            agent_dir="${root}/${rel}"
+            link_skills_into_dir "$agent_dir" "$store_dir" || true
         done
         summary_skills="$sel (${scope})"
     fi
