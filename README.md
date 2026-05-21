@@ -12,7 +12,7 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
       - Optional subdirectories with examples or other materials.
 
-## Automatic Installation
+## Quick Install
 
 A single command launches an interactive wizard that walks through every setup step: installing global skills for one or more agents, adding the project guideline file (`CLAUDE.md` / `AGENTS.md` / `.junie/guidelines.md`) to the project root, and registering the JetBrains and Context7 MCP servers.
 
@@ -54,7 +54,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                           |
 | `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                      |
 | `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                        |
-| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs into the per-agent user-home dir; `local` installs into the project (e.g. `./.claude/skills`). |
+| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
 | `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                       |
 | `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.          |
 
@@ -77,7 +77,8 @@ Copy the `AGENTS.md` file from this repository to the root of your Jmix applicat
 
 The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally.
 
-Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your home directory:
+- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`), symlinked from `~/.agents/skills` (Codex, OpenCode), `~/.claude/skills` (Claude Code), `~/.junie/skills` (Junie).
+- **Local:** store at `<project>/.skills/`, symlinked from `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
 
 | Agent       | Skills Folder Path           |
 |:------------|:-----------------------------|

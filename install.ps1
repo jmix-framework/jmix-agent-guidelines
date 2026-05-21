@@ -12,6 +12,8 @@
 
     Subcommands are available for non-interactive use:
       install.ps1 skills        -Agents CSV [-Scope global|local] [-Version V] [-Ref REF]
+                                Installs skills into a canonical store once, then symlinks each
+                                selected agent's skills dir to that store.
       install.ps1 agents-md     -Agents CSV [-Version V] [-Ref REF]
       install.ps1 mcp-jetbrains -Agents CSV
       install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
@@ -334,63 +336,81 @@ function Resolve-Scope {
     }
 }
 
-function Get-SkillsTarget {
-    param(
-        [string]$Agent,
-        [string]$Scope = 'global'
-    )
-    if ($Scope -eq 'local') {
-        $base = (Get-Location).Path
-        switch ($Agent) {
-            'claude'   { Join-Path $base '.claude/skills' }
-            'codex'    { Join-Path $base '.codex/skills' }
-            'opencode' { Join-Path $base '.opencode/skills' }
-            'junie'    { Join-Path $base '.junie/skills' }
-            default    { throw "unknown agent '$Agent'" }
-        }
-    } else {
-        switch ($Agent) {
-            'claude'   { Join-Path $HOME '.claude/skills' }
-            'codex'    { Join-Path $HOME '.codex/skills' }
-            'opencode' { Join-Path $HOME '.config/opencode/skills' }
-            'junie'    { Join-Path $HOME '.junie/skills' }
-            default    { throw "unknown agent '$Agent'" }
-        }
+function Get-AgentSymlinkRel {
+    param([string]$Agent)
+    switch ($Agent) {
+        'claude'   { '.claude/skills' }
+        'codex'    { '.agents/skills' }
+        'opencode' { '.agents/skills' }
+        'junie'    { '.junie/skills' }
+        default    { throw "unknown agent '$Agent'" }
     }
 }
 
-function Install-SkillsForAgent {
-    param(
-        [string]$Agent,
-        [string]$Scope = 'global'
-    )
-    $target = Get-SkillsTarget -Agent $Agent -Scope $Scope
-    $label  = Get-AgentLabel -Agent $Agent
+# Creates/refreshes a whole-dir symlink $Link -> $Target. Replaces an existing
+# symlink; an existing real dir is backed up (when -BackupExistingFiles) or removed.
+# Requires symlink privileges; fails with guidance otherwise.
+function New-DirSymlink {
+    param([string]$Link, [string]$Target)
+    if (Test-Path $Link) {
+        $item = Get-Item $Link -Force
+        if ($item.LinkType) {
+            Remove-Item $Link -Force
+        } elseif ($BackupExistingFiles) {
+            Rename-Item -Path $Link -NewName "$([System.IO.Path]::GetFileName($Link)).bak-$($script:Timestamp)"
+        } else {
+            Remove-Item $Link -Recurse -Force
+        }
+    }
+    $parent = Split-Path -Parent $Link
+    if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    try {
+        New-Item -ItemType SymbolicLink -Path $Link -Target $Target -ErrorAction Stop | Out-Null
+    } catch {
+        Write-ErrAndExit "cannot create symlink $Link -> $Target. Enable Windows Developer Mode or run as Administrator to allow symlinks."
+    }
+}
 
+function Install-SkillsToStore {
+    param([string]$StoreDir)
     Write-Info ''
-    Write-Info "Installing $Scope skills for $label into $target"
-    if (-not (Test-Path $target)) {
-        New-Item -ItemType Directory -Path $target -Force | Out-Null
-    }
-
-    $count = 0
+    Write-Info "Installing skills into store $StoreDir"
+    if (-not (Test-Path $StoreDir)) { New-Item -ItemType Directory -Path $StoreDir -Force | Out-Null }
     foreach ($skill in Get-ChildItem -Path $script:SourceSkillsDir -Directory) {
-        $dest = Join-Path $target $skill.Name
+        $dest = Join-Path $StoreDir $skill.Name
         Write-Dest -Src $skill.FullName -Dest $dest -Label $skill.Name
-        $count++
     }
-    Write-Info "  $count skill(s) processed for $label"
 }
 
 function Invoke-CmdSkills {
     $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'skills'
     $resolvedScope = Resolve-Scope -Scope $Scope
     Initialize-Tarball
-    foreach ($a in $agents) {
-        Install-SkillsForAgent -Agent $a -Scope $resolvedScope
+
+    if ($resolvedScope -eq 'local') {
+        $root = (Get-Location).Path
+        $storeDir = Join-Path $root '.skills'
+    } else {
+        $root = $HOME
+        $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
     }
+
+    Install-SkillsToStore -StoreDir $storeDir
+
     Write-Info ''
-    Write-Info "Done. Installed $resolvedScope skills for: $($agents -join ', ')"
+    Write-Info 'Linking agent skill dirs to the store'
+    $seen = @{}
+    foreach ($a in $agents) {
+        $rel = Get-AgentSymlinkRel -Agent $a
+        if ($seen.ContainsKey($rel)) { continue }
+        $seen[$rel] = $true
+        $link = Join-Path $root $rel
+        New-DirSymlink -Link $link -Target $storeDir
+        Write-Info "  Linked: $link -> $storeDir"
+    }
+
+    Write-Info ''
+    Write-Info "Done. Installed $resolvedScope skills store at $storeDir and linked: $($agents -join ', ')"
 }
 
 # =================================================================
@@ -627,7 +647,7 @@ function Install-PlaywrightForAgents {
 
     foreach ($agent in $Agents) {
         if ($agent -eq 'claude') { continue }
-        $target = Get-SkillsTarget -Agent $agent
+        $target = Join-Path $HOME (Get-AgentSymlinkRel -Agent $agent)
         if (-not (Test-Path $target)) {
             New-Item -ItemType Directory -Path $target -Force | Out-Null
         }
@@ -699,9 +719,27 @@ function Invoke-Wizard {
         $scopeAnswer = Read-Prompt -Message 'Install scope: (g)lobal user home or (l)ocal project dir' -Default 'g'
         $resolvedScope = if ($scopeAnswer -match '^(l|local)$') { 'local' } else { 'global' }
         Initialize-Tarball
-        foreach ($a in $sel) {
-            try { Install-SkillsForAgent -Agent $a -Scope $resolvedScope } catch { Write-Info "error: $($_.Exception.Message)" }
-        }
+        try {
+            if ($resolvedScope -eq 'local') {
+                $wizRoot = (Get-Location).Path
+                $wizStoreDir = Join-Path $wizRoot '.skills'
+            } else {
+                $wizRoot = $HOME
+                $wizStoreDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
+            }
+            Install-SkillsToStore -StoreDir $wizStoreDir
+            Write-Info ''
+            Write-Info 'Linking agent skill dirs to the store'
+            $wizSeen = @{}
+            foreach ($a in $sel) {
+                $rel = Get-AgentSymlinkRel -Agent $a
+                if ($wizSeen.ContainsKey($rel)) { continue }
+                $wizSeen[$rel] = $true
+                $link = Join-Path $wizRoot $rel
+                New-DirSymlink -Link $link -Target $wizStoreDir
+                Write-Info "  Linked: $link -> $wizStoreDir"
+            }
+        } catch { Write-Info "error: $($_.Exception.Message)" }
         $summaryStrings.skills = "$($sel -join ', ') ($resolvedScope)"
     }
 

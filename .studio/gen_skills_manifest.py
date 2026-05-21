@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate .studio/skills-manifest.json (version -> {skills[], sha256}).
 
-The aggregate hash is byte-identical to SkillsHasher.kt in jmix-studio:
+The aggregate hash is byte-identical to jmix-studio logic:
 for each listed skill folder, walk files; entry = relpath(UTF-8) + 0x00 + bytes,
 relpath is POSIX-separated and relative to the version's skills/ dir; sort
 entries by relpath bytes; SHA-256 over the concatenation; lowercase hex.
@@ -12,31 +12,19 @@ import os
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Per-scope agent skill directories (relative to the scope root: the user home
-# for "global", the project base for "local"). Mirrors install.sh / install.ps1.
-# Studio reads these from the manifest instead of hardcoding paths.
-AGENTS_DIRS = {
-    "global": [
-        ".claude/skills",
-        ".codex/skills",
-        ".config/opencode/skills",
-        ".junie/skills",
-    ],
-    "local": [
-        ".claude/skills",
-        ".codex/skills",
-        ".opencode/skills",
-        ".junie/skills",
-    ],
+# Canonical per-scope skill store (relative to the scope root: the user home for
+# "global", the project base for "local"). The global store appends /v<major>.
+# Studio reads this from the manifest; install.sh / install.ps1 mirror it.
+STORE = {
+    "global": ".agents/.jmix/skills",
+    "local": ".skills",
 }
-
 
 def list_skill_names(skills_dir):
     return sorted(
         name for name in os.listdir(skills_dir)
         if os.path.isdir(os.path.join(skills_dir, name))
     )
-
 
 def aggregate_hash(skills_dir, skill_names):
     entries = []
@@ -58,7 +46,6 @@ def aggregate_hash(skills_dir, skill_names):
         digest.update(data)
     return digest.hexdigest()
 
-
 def build_manifest():
     versions = {}
     for entry in sorted(os.listdir(REPO_ROOT)):
@@ -69,8 +56,7 @@ def build_manifest():
             continue
         names = list_skill_names(skills_dir)
         versions[entry] = {"skills": names, "sha256": aggregate_hash(skills_dir, names)}
-    return {"schemaVersion": 1, "agents-dirs": AGENTS_DIRS, "versions": versions}
-
+    return {"schemaVersion": 1, "store": STORE, "versions": versions}
 
 def main():
     manifest = build_manifest()
@@ -81,7 +67,6 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(text)
     print("wrote " + out_path)
-
 
 if __name__ == "__main__":
     main()

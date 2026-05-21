@@ -152,7 +152,7 @@ Jmix AI Agent Guidelines installer.
 
 Usage:
   install.sh [--version V] [--ref REF]                           # interactive wizard
-  install.sh skills        [options] [--scope global|local]      # install skills
+  install.sh skills        [--agents CSV] [--scope global|local]   # install skills into the canonical store and symlink agent dirs
   install.sh agents-md     [options]                             # install project guidelines
   install.sh mcp-jetbrains [options]                             # register JetBrains MCP
   install.sh mcp-context7  [options] [--context7-key KEY]        # register Context7 MCP
@@ -317,31 +317,52 @@ parse_scope() {
     esac
 }
 
-# Resolves the skills target dir for an agent.
-# $1 - agent
-# $2 - scope: "global" (user home, default) or "local" (project working dir)
-skills_target_for_agent() {
-    local agent="$1"
-    local scope="${2:-global}"
-    if [ "$scope" = "local" ]; then
-        local base
-        base="$(pwd -P)"
-        case "$agent" in
-            claude)   printf '%s/.claude/skills' "$base" ;;
-            codex)    printf '%s/.codex/skills' "$base" ;;
-            opencode) printf '%s/.opencode/skills' "$base" ;;
-            junie)    printf '%s/.junie/skills' "$base" ;;
-            *) die "unknown agent '$agent'" ;;
-        esac
-    else
-        case "$agent" in
-            claude)   printf '%s' "${HOME}/.claude/skills" ;;
-            codex)    printf '%s' "${HOME}/.codex/skills" ;;
-            opencode) printf '%s' "${HOME}/.config/opencode/skills" ;;
-            junie)    printf '%s' "${HOME}/.junie/skills" ;;
-            *) die "unknown agent '$agent'" ;;
-        esac
+# Relative skills dir each agent reads, used as a whole-dir symlink to the store.
+# claude -> .claude/skills ; codex & opencode -> .agents/skills (open standard) ;
+# junie -> .junie/skills. Rooted at $HOME (global) or the project dir (local).
+agent_symlink_rel() {
+    case "$1" in
+        claude)            printf '.claude/skills' ;;
+        codex|opencode)    printf '.agents/skills' ;;
+        junie)             printf '.junie/skills' ;;
+        *) die "unknown agent '$1'" ;;
+    esac
+}
+
+# Creates (or refreshes) a whole-dir symlink $1 -> $2. Replaces an existing
+# symlink; an existing real dir is backed up (when --backup-existing-files) or
+# removed. Requires symlink support; fails otherwise.
+create_symlink() {
+    local link="$1"
+    local target="$2"
+    if [ -L "$link" ]; then
+        rm -f "$link" || die "cannot replace symlink ${link}"
+    elif [ -e "$link" ]; then
+        if [ "$BACKUP_EXISTING" -eq 1 ]; then
+            mv "$link" "${link}.bak-${TIMESTAMP}" || die "cannot back up ${link}"
+        else
+            rm -rf "$link" || die "cannot remove ${link}"
+        fi
     fi
+    mkdir -p "$(dirname "$link")" || die "cannot create parent of ${link}"
+    ln -s "$target" "$link" \
+        || die "cannot create symlink ${link} -> ${target}. Your filesystem/OS may not permit symlinks."
+}
+
+# Copies each source skill folder into the canonical store (overwrite or backup
+# via write_dest).
+install_skills_to_store() {
+    local store_dir="$1"
+    log ""
+    log "Installing skills into store ${store_dir}"
+    mkdir -p "$store_dir" || die "cannot create store ${store_dir}"
+    local skill name dest
+    for skill in "$SOURCE_SKILLS_DIR"/*/; do
+        [ -d "$skill" ] || continue
+        name="$(basename "$skill")"
+        dest="${store_dir}/${name}"
+        write_dest "$skill" "$dest" "$name"
+    done
 }
 
 agent_label() {
@@ -352,30 +373,6 @@ agent_label() {
         junie)    printf 'Junie' ;;
         *) printf '%s' "$1" ;;
     esac
-}
-
-install_skills_for_agent() {
-    local agent="$1"
-    local scope="${2:-global}"
-    local target_dir
-    target_dir="$(skills_target_for_agent "$agent" "$scope")"
-    local label
-    label="$(agent_label "$agent")"
-
-    log ""
-    log "Installing ${scope} skills for ${label} into ${target_dir}"
-    mkdir -p "$target_dir" || die "cannot write to ${target_dir}: mkdir failed"
-
-    local count=0
-    local skill name dest
-    for skill in "$SOURCE_SKILLS_DIR"/*/; do
-        [ -d "$skill" ] || continue
-        name="$(basename "$skill")"
-        dest="${target_dir}/${name}"
-        write_dest "$skill" "$dest" "$name"
-        count=$((count + 1))
-    done
-    log "  ${count} skill(s) processed for ${label}"
 }
 
 cmd_skills() {
@@ -409,12 +406,33 @@ cmd_skills() {
 
     ensure_tarball
 
-    local agent
-    for agent in $agents; do
-        install_skills_for_agent "$agent" "$scope"
-    done
+    local root store_dir
+    if [ "$scope" = "local" ]; then
+        root="$(pwd -P)"
+        store_dir="${root}/.skills"
+    else
+        root="${HOME}"
+        store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
+    fi
+
+    install_skills_to_store "$store_dir"
+
     log ""
-    log "Done. Installed ${scope} skills for: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
+    log "Linking agent skill dirs to the store"
+    local agent rel link seen=" "
+    for agent in $agents; do
+        rel="$(agent_symlink_rel "$agent")"
+        case "$seen" in
+            *" ${rel} "*) continue ;;
+        esac
+        seen="${seen}${rel} "
+        link="${root}/${rel}"
+        create_symlink "$link" "$store_dir"
+        log "  Linked: ${link} -> ${store_dir}"
+    done
+
+    log ""
+    log "Done. Installed ${scope} skills store at ${store_dir} and linked: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
 }
 
 # =================================================================
@@ -732,7 +750,7 @@ cmd_playwright() {
     local agent target dest skill
     for agent in $agents; do
         [ "$agent" = "claude" ] && continue
-        target="$(skills_target_for_agent "$agent")"
+        target="${HOME}/$(agent_symlink_rel "$agent")"
         mkdir -p "$target" || die "cannot create ${target}"
         for skill in $new_skills; do
             [ -d "${claude_skills}/${skill}" ] || continue
@@ -828,9 +846,20 @@ cmd_wizard() {
         scope_answer="$(prompt 'Install scope: (g)lobal user home or (l)ocal project dir' 'g')"
         case "$scope_answer" in l|L|local|LOCAL) scope="local" ;; esac
         ensure_tarball
-        local agent
+        local root store_dir
+        if [ "$scope" = "local" ]; then
+            root="$(pwd -P)"; store_dir="${root}/.skills"
+        else
+            root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
+        fi
+        install_skills_to_store "$store_dir" || true
+        local agent rel link seen=" "
         for agent in $sel; do
-            install_skills_for_agent "$agent" "$scope" || true
+            rel="$(agent_symlink_rel "$agent")"
+            case "$seen" in *" ${rel} "*) continue ;; esac
+            seen="${seen}${rel} "
+            link="${root}/${rel}"
+            create_symlink "$link" "$store_dir" || true
         done
         summary_skills="$sel (${scope})"
     fi
