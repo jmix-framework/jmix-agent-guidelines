@@ -87,7 +87,7 @@ class CustomerUiTest {
     void opensCustomerList() {
         viewNavigators.view(UiTestUtils.getCurrentView(), CustomerListView.class).navigate();
         CustomerListView view = UiTestUtils.getCurrentView();
-        DataGrid<Customer> grid = findComponent(view, "customersDataGrid");
+        DataGrid<Customer> grid = UiTestUtils.getComponent(view, "customersDataGrid");
         assertThat(grid).isNotNull();
     }
 }
