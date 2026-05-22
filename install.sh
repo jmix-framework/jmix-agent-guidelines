@@ -799,7 +799,7 @@ cmd_playwright() {
     local claude_skills="${HOME}/.claude/skills"
     mkdir -p "$claude_skills" || die "cannot create ${claude_skills}"
     local before
-    before="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
+    before="$(cd "$claude_skills" && find . -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u)"
 
     log "Installing Playwright skills via npx (@playwright/cli)..."
     # playwright-cli installs into <cwd>/.claude/skills; run from $HOME so the
@@ -808,7 +808,7 @@ cmd_playwright() {
         || die "@playwright/cli install --skills failed"
 
     local after
-    after="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
+    after="$(cd "$claude_skills" && find . -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u)"
     local new_skills
     new_skills="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after"))"
 
