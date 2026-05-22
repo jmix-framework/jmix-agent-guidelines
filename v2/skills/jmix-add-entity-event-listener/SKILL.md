@@ -16,11 +16,12 @@ Use this skill when business logic must react to entity creation, update, delete
    - `io.jmix.core.event.EntitySavingEvent`
 4. For created entities, load by `event.getEntityId()` when related data is needed.
 5. If you specify a custom fetch plan, include every scalar and reference property read later.
-6. Use `EntitySavingEvent` or a before-commit `@EventListener` path for validation and required defaults.
-7. Put multi-entity changes in a transactional service method when atomicity matters.
-8. Reject unsupported updates/deletes inside the event path before treating work as complete.
-9. Search the changed code for `@TransactionalEventListener`; if the listener performs validation, rejects updates/deletes, sets required defaults, or performs required synchronous side effects, replace it with `@EventListener` plus `EntitySavingEvent`/`EntityChangedEvent`/`EntityRemovingEvent` or another before-commit path.
-10. Add tests or at least compile/startup validation for the event listener.
+6. For deleted entities, do not load `event.getEntityId()`; use old values or old reference ids from `event.getChanges()`.
+7. Use `EntitySavingEvent` or a before-commit `@EventListener` path for validation and required defaults.
+8. Put multi-entity changes in a transactional service method when atomicity matters.
+9. Reject unsupported updates/deletes inside the event path before treating work as complete.
+10. Search the changed code for `@TransactionalEventListener`; if the listener performs validation, rejects updates/deletes, sets required defaults, or performs required synchronous side effects, replace it with `@EventListener` plus `EntitySavingEvent`/`EntityChangedEvent` or another before-commit path.
+11. Add tests or at least compile/startup validation for the event listener.
 
 ## Listener Template
 
@@ -67,13 +68,13 @@ public class LedgerEntryEventListener {
 
 ## Fetch Plan Safety
 
-The loaded entity must contain every property the listener reads. The safest default is loading by event id with the normal plan:
+For non-deleted events, the loaded entity must contain every property the listener reads. The safest default is loading by event id with the normal plan:
 
 ```java
 LedgerEntry entry = dataManager.load(event.getEntityId()).one();
 ```
 
-If you use a custom fetch plan, add all accessed scalar fields and references:
+For non-deleted events, if you use a custom fetch plan, add all accessed scalar fields and references:
 
 ```java
 LedgerEntry entry = dataManager.load(LedgerEntry.class)
@@ -97,6 +98,8 @@ Use normal Spring `@EventListener` for logic that must affect the current save/r
 - validation whose exception must propagate to `DataManager.save()` or `DataManager.remove()`.
 
 `@TransactionalEventListener` is for after-transaction reactions such as notifications or integration events. Do not use it when failure must roll back or reject the current persistence operation.
+
+Use `EntityChangedEvent.Type.DELETED` to detect deletes; handle removal checks through `EntityChangedEvent`, not a separate removal event class. For delete-side logic, use `event.getChanges().getOldValue(...)`, `getOldReferenceId(...)`, or the corresponding old collection methods instead of loading the removed entity.
 
 ## Forbidden
 

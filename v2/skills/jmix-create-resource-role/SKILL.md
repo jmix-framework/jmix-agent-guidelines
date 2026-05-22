@@ -61,7 +61,7 @@ Before finishing, check this matrix:
 | Entity attributes | yes | `@EntityAttributePolicy` |
 | List view | if user opens it | `@ViewPolicy` |
 | Detail/dialog view | if user opens it | `@ViewPolicy` |
-| Menu item | top-level menu only | `@MenuPolicy` |
+| Menu item | if user opens it from menu | `@MenuPolicy` |
 
 ## Create-Only Checklist
 

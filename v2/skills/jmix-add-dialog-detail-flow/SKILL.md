@@ -70,7 +70,13 @@ Prefer binding to the selected master container when possible:
 </loader>
 ```
 
-If passing an id manually, compare to the id field:
+If passing an entity manually, compare the entity-valued property to the entity parameter:
+
+```xml
+where e.order = :order
+```
+
+If passing only an id manually, compare to the id field:
 
 ```xml
 where e.order.id = :orderId

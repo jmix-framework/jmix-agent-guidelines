@@ -19,7 +19,7 @@ Use this skill when creating a top-level list/search view for an entity.
 8. Verify every JPQL query uses the JPA/Jmix entity name, not the database table name.
 9. Render a visible button for every grid action that users must trigger.
 10. If `urlQueryParameters` references a component id, declare a real component with that id.
-11. Add a top-level `menu.xml` item for the list view.
+11. Add a `menu.xml` item for list views that should appear in navigation.
 12. Add message keys for title, menu, and custom button captions.
 13. Add `@ViewPolicy("Entity.list")` and `@MenuPolicy("Entity.list")` for roles that can open the view.
 

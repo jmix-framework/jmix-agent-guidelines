@@ -101,25 +101,31 @@ For `@ManyToOne` and other entity references, prefer the simplest project-consis
 
 - `entityPicker` with lookup and clear actions when users need a full lookup screen.
 - `entityComboBox` with an `itemsContainer` loaded by a collection loader when the candidate set should be preloaded.
-- `entityComboBox` with `itemsQuery` only when that pattern already compiles in the project.
+- `entityComboBox` with `itemsQuery` for lazy loading only when that pattern already compiles in the project and query parameters are handled explicitly.
 
 When using `itemsQuery`, use the JPA/Jmix entity name, not the database table name:
 
 ```xml
 <entityComboBox id="productField" property="product">
-    <items query="select e from Product e" class="com.company.app.entity.Product"/>
+    <itemsQuery class="com.company.app.entity.Product"
+                fetchPlan="_instance_name">
+        <query><![CDATA[select e from Product e order by e.name]]></query>
+    </itemsQuery>
 </entityComboBox>
 ```
+
+`itemsQuery` does not automatically bind `container_` or `component_` parameters. Use an `itemsContainer` with a loader when the reference list depends on another component or container.
 
 Before finishing, verify that saved reference entities can appear in the component data provider. If a field is required, do not leave a reference component without a working item source or lookup action.
 
 ## Forbidden
 
-- Using a list view as `@Route(layout = ...)`.
+- Using list-view route or id patterns for detail views.
 - Missing `detail_saveClose`.
 - Using `textField` for numeric, date/time, boolean, or reference properties.
 - Reference fields without a working lookup action, `itemsContainer`, or verified `itemsQuery`.
 - Using `@Table` names in `itemsQuery`.
+- `itemsQuery` with unresolved `container_` or `component_` parameters.
 - Hardcoded labels or titles.
 - Hiding required fields without setting defaults elsewhere.
 - Missing view policy for dialog-opened detail views.

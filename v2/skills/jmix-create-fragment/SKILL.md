@@ -16,7 +16,7 @@ Use this skill when UI code should be reusable inside one or more views or fragm
 5. Create the XML descriptor with the fragment namespace and a required `<content>` root.
 6. Make the XML root component match the controller generic type.
 7. Add `<data>` only for data the fragment owns, or mark host-owned containers/loaders with `provided="true"`.
-8. Add fragment facets only when needed: `fragmentDataLoadCoordinator`, `fragmentSettings`, `timer`, or `urlQueryParameters`.
+8. Add fragment facets only after verifying that the project's fragment XML schema supports `<facets>`.
 9. Give fragment instances an `id` when a facet requires stable state.
 10. Pass parameters through public setters; use XML `<properties>` or call setters before adding the fragment.
 11. Add message keys for user-visible labels, captions, and action text.
@@ -51,9 +51,6 @@ public class CustomerSummaryFragment extends Fragment<VerticalLayout> {
             </loader>
         </collection>
     </data>
-    <facets>
-        <fragmentDataLoadCoordinator auto="true"/>
-    </facets>
     <content>
         <vbox id="root">
             <dataGrid id="customersDataGrid" dataContainer="customersDc">
@@ -79,11 +76,27 @@ Programmatic embedding:
 
 ```java
 CustomerSummaryFragment fragment =
-        fragments.create(this, CustomerSummaryFragment.class, "customerSummaryFragment");
+        fragments.create(this, CustomerSummaryFragment.class);
 targetLayout.add(fragment);
 ```
 
 If the fragment subscribes to host events, create and add it before that host event fires.
+
+## Fragment Facets
+
+Fragment facets are available only in Jmix 2.x projects whose fragment descriptor schema supports a `<facets>` element. Check existing fragment XML, the project XSD, or the project docs before using them.
+
+If supported, use fragment-specific facet names:
+
+```xml
+<facets>
+    <fragmentDataLoadCoordinator auto="true"/>
+</facets>
+```
+
+Do not also call `getFragmentData().loadAll()` for the same loaders when `fragmentDataLoadCoordinator` already loads them. If the project does not support fragment facets, keep the fragment data load in the controller or in the host view.
+
+Fragment facets that store state need a stable fragment instance id. Prefer declarative embedding with an `id`; for programmatic embedding, use the id-aware `Fragments` creation pattern only when that overload exists in the project.
 
 ## Provided Data Components
 
@@ -114,8 +127,9 @@ Use a fragment renderer only when a grid/list cell needs reusable UI more comple
 - XML root component different from `Fragment<...>` generic type.
 - One-off view layout extracted into a fragment without reuse or isolation benefit.
 - `provided="true"` without a same-id host data component.
-- `dataLoadCoordinator` in fragments; use `fragmentDataLoadCoordinator`.
-- `settings` in fragments; use `fragmentSettings`.
+- Fragment facets in projects whose fragment XML schema does not support `<facets>`.
+- `dataLoadCoordinator` in fragments when fragment facets are supported; use `fragmentDataLoadCoordinator`.
+- `settings` in fragments when fragment facets are supported; use `fragmentSettings`.
 - `urlQueryParameters` entries referencing components that are not declared in the fragment.
 - Hardcoded user-visible labels.
 - Using `UiComponentUtils` to find inner fragment components by Vaadin ids.
