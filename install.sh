@@ -936,8 +936,7 @@ cmd_wizard() {
     fi
 
     # Step 3: JetBrains MCP
-    # shellcheck disable=SC2086
-    sel="$(wizard_pick_agent skip '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
+    sel="$(wizard_pick_agent skip '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' "$JETBRAINS_AGENTS")"
     if [ "$sel" != "skip" ]; then
         local agent
         for agent in $sel; do
