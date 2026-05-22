@@ -100,7 +100,7 @@ Use normal Spring `@EventListener` for logic that must affect the current save/r
 
 ## Forbidden
 
-- `io.jmix.core.entity.EntityChangedEvent`.
+- Wrong event import packages such as `io.jmix.core.entity.EntityChangedEvent`; use `io.jmix.core.event.EntityChangedEvent`.
 - Assuming `EntityChangedEvent` directly contains the full entity instance.
 - Reading an entity property that is omitted from a custom fetch plan.
 - `@TransactionalEventListener` for validation, required synchronous side effects, or immutable-record enforcement.

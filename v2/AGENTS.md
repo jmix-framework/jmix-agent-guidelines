@@ -1,11 +1,11 @@
 # Jmix Engineering Guidelines
 
-Use these instructions when working on a Jmix 2.8 application.
+Use these instructions when working on a Jmix 2.x application.
 
 ## Project Stack
 
 - Java 17
-- Jmix 2.8, Spring Boot 3, Vaadin Flow UI
+- Jmix 2.x, Spring Boot 3, Vaadin Flow UI
 - Gradle
 - Relational database with Liquibase migrations
 

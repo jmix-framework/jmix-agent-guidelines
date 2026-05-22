@@ -17,6 +17,7 @@ Use this skill whenever adding user-visible text, entities, enum values, views, 
 6. Use `msg://` in XML descriptors.
 7. Use `MessageBundle` in view controllers and `Messages` in services/beans.
 8. Check every `msg://` reference against the bundle key exactly; key lookup is case-sensitive.
+9. Use full `msg://<message-group>/<key>` references when the key belongs to another message group.
 
 ## Key Patterns
 
@@ -34,10 +35,33 @@ createOrderButton.text=Create order
 
 ## XML Usage
 
+A Jmix message reference has two forms:
+
+- Brief: `msg://<key>`.
+- Full: `msg://<message-group>/<key>`.
+
+The message group is usually the Java package-style bundle group before `/` in a properties key. Entity messages often use the entity package group, for example `com.company.app.entity/Customer.name`. View-local messages usually live in the view package group, for example `com.company.app.view.customer/customerListView.title`.
+
+Brief references are resolved against the current XML descriptor message group. They are fine for keys stored next to that descriptor:
+
 ```xml
 <view title="msg://customerListView.title">
     <button id="createOrderButton" text="msg://createOrderButton.text"/>
 </view>
+```
+
+Use a full reference when the key is in another group, for example entity captions, menu keys, shared application keys, or text used from a descriptor whose package does not match the key group:
+
+```xml
+<item view="Customer.list" title="msg://com.company.app.view.customer/customerListView.title"/>
+<h4 text="msg://com.company.app.entity/Customer.orders"/>
+```
+
+For Bean Validation messages, keep the same full reference inside braces:
+
+```java
+@NotNull(message = "{msg://com.company.app.entity/Customer.email.required}")
+private String email;
 ```
 
 ## Java Usage In Views
@@ -68,5 +92,6 @@ Do not rely on similar casing such as `CreateOrderButton.text` or `createorderBu
 - Hardcoded user-visible text in XML or Java controllers.
 - Adding a key to only one locale file.
 - `msg://` keys that differ from properties keys only by case.
+- Brief `msg://key` references to keys stored in another message group.
 - Missing enum constant messages.
 - `${0}` placeholders in `formatMessage`; use Java formatter placeholders such as `%s`.
