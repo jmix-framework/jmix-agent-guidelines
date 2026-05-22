@@ -69,6 +69,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
 
 $script:RepoOwner = 'jmix-framework'
 $script:RepoName  = 'jmix-agent-guidelines'
@@ -92,6 +93,19 @@ $script:Timestamp        = (Get-Date).ToString('yyyyMMdd-HHmmss')
 function Write-Info {
     param([string]$Message)
     Write-Output $Message
+}
+
+# Emits environment + tool versions through Write-Verbose (shown only with -Verbose)
+# to help diagnose user problems.
+function Write-EnvDiagnostics {
+    Write-Verbose "os: $([System.Environment]::OSVersion.VersionString)"
+    Write-Verbose "pwd: $((Get-Location).Path)"
+    Write-Verbose "HOME: $HOME"
+    Write-Verbose "PSVersion: $($PSVersionTable.PSVersion)"
+    foreach ($tool in 'git', 'node', 'npx') {
+        $cmd = Get-Command $tool -ErrorAction SilentlyContinue
+        Write-Verbose "${tool}: $(if ($cmd) { $cmd.Source } else { 'not found' })"
+    }
 }
 
 function Write-ErrAndExit {
@@ -295,14 +309,27 @@ function Initialize-Tarball {
 
     $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$Ref"
     $zipPath    = Join-Path $script:Staging 'source.zip'
+    Write-Verbose "staging: $($script:Staging)"
+    Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$Ref'"
 
     Write-Info "Downloading $archiveUrl"
-    try {
-        Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath
-    } catch {
-        $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
-        Write-ErrAndExit "failed to download $archiveUrl (HTTP $status)"
+    $downloaded = $false
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
+            $downloaded = $true
+            break
+        } catch {
+            $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+            if ($attempt -lt 3) {
+                Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
+                Start-Sleep -Seconds 2
+            } else {
+                Write-ErrAndExit "failed to download $archiveUrl after $attempt attempts (HTTP $status)"
+            }
+        }
     }
+    if (-not $downloaded) { Write-ErrAndExit "failed to download $archiveUrl" }
 
     Expand-Archive -Path $zipPath -DestinationPath $script:Staging -Force
 
@@ -323,6 +350,9 @@ function Initialize-Tarball {
     $script:SourceSkillsDir = $resolved.Path
     $script:ResolvedVersionDir = Split-Path -Leaf (Split-Path -Parent $script:SourceSkillsDir)
     $script:SourceAgentsMd = Join-Path (Split-Path -Parent $script:SourceSkillsDir) 'AGENTS.md'
+    Write-Verbose "extracted dir: $($script:ExtractedDir)"
+    Write-Verbose "resolved version dir: $($script:ResolvedVersionDir)"
+    Write-Verbose "source skills dir: $($script:SourceSkillsDir)"
 
     if ($resolved.Status -eq 'fallback') {
         Write-Info "Version '$Version' did not match any folder, falling back to latest available ($($script:ResolvedVersionDir))"
@@ -416,6 +446,7 @@ function Invoke-CmdSkills {
         $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
     }
 
+    Write-Verbose "scope=$resolvedScope root=$root store=$storeDir"
     Install-SkillsToStore -StoreDir $storeDir
 
     Write-Info ''
@@ -645,8 +676,13 @@ function Install-PlaywrightForAgents {
     }
 
     Write-Info 'Installing Playwright skills via npx (@playwright/cli)...'
+    # playwright-cli installs into <cwd>/.claude/skills; run from $HOME so the
+    # skills land globally in ~/.claude/skills, never inside the project.
+    Push-Location $HOME
     & npx -y '@playwright/cli@latest' install --skills
-    if ($LASTEXITCODE -ne 0) {
+    $playwrightExit = $LASTEXITCODE
+    Pop-Location
+    if ($playwrightExit -ne 0) {
         Write-ErrAndExit '@playwright/cli install --skills failed'
     }
 
@@ -821,6 +857,8 @@ function Invoke-Wizard {
 # =================================================================
 
 try {
+    Write-EnvDiagnostics
+
     switch ($Subcommand) {
         ''               { Invoke-Wizard }
         'skills'         { Invoke-CmdSkills }

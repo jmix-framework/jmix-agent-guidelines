@@ -25,6 +25,7 @@ TARBALL_READY=0
 VERSION=""
 REF="main"
 BACKUP_EXISTING=0
+VERBOSE=0
 
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 
@@ -47,6 +48,27 @@ err() {
 die() {
     err "$*"
     exit 1
+}
+
+# Prints a diagnostic line to stderr, only when --verbose/--debug is set.
+vlog() {
+    [ "$VERBOSE" -eq 1 ] && printf '[debug] %s\n' "$*" >&2
+    return 0
+}
+
+# Dumps environment + tool versions (verbose only) to help diagnose user issues.
+debug_env() {
+    [ "$VERBOSE" -eq 1 ] || return 0
+    vlog "os: $(uname -a 2>/dev/null)"
+    vlog "pwd: $(pwd -P 2>/dev/null)"
+    vlog "HOME: ${HOME:-}"
+    vlog "PATH: ${PATH:-}"
+    vlog "bash: ${BASH_VERSION:-?}"
+    vlog "curl: $(command -v curl 2>/dev/null || echo 'not found')"
+    vlog "tar: $(command -v tar 2>/dev/null || echo 'not found')"
+    vlog "git: $(git --version 2>/dev/null || echo 'not found')"
+    vlog "node: $(node --version 2>/dev/null || echo 'not found')"
+    vlog "npx: $(npx --version 2>/dev/null || echo 'not found')"
 }
 
 require_tool() {
@@ -184,6 +206,8 @@ Common options:
   --backup-existing-files    Rename overwritten files/dirs to
                              <name>.bak-<timestamp> instead of deleting them.
                              Off by default.
+  --verbose, --debug         Print extra diagnostic output (OS, PATH, resolved
+                             paths, tool versions) to help troubleshoot problems.
   -h, --help                 Show this help.
 
 skills options:
@@ -283,14 +307,16 @@ ensure_tarball() {
     require_tool tar
 
     STAGING="$(mktemp -d 2>/dev/null || mktemp -d -t jmix-install)"
-    trap 'rm -rf "$STAGING"' EXIT
+    trap 'rm -rf "$STAGING"' INT TERM EXIT
 
     local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
     local tarball_path="${STAGING}/source.tar.gz"
+    vlog "staging dir: ${STAGING}"
+    vlog "requested version: '${VERSION}', ref: '${REF}'"
 
     log "Downloading ${tarball_url}"
     local http_status
-    http_status="$(curl -sSL -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
+    http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
     if [ "$http_status" != "200" ]; then
         die "failed to download ${tarball_url} (HTTP ${http_status})"
     fi
@@ -309,11 +335,14 @@ ensure_tarball() {
 
     RESOLVED_VERSION_DIR="$(basename "$(dirname "$SOURCE_SKILLS_DIR")")"
     SOURCE_AGENTS_MD="$(dirname "$SOURCE_SKILLS_DIR")/AGENTS.md"
+    vlog "extracted dir: ${EXTRACTED_DIR}"
+    vlog "resolved version dir: ${RESOLVED_VERSION_DIR}"
+    vlog "source skills dir: ${SOURCE_SKILLS_DIR}"
 
     if [ "$resolve_status" -eq 2 ]; then
         log "Version '${VERSION}' did not match any folder, falling back to latest available (${RESOLVED_VERSION_DIR})"
     fi
-    log "Using guidelines from ${SOURCE_SKILLS_DIR#${EXTRACTED_DIR}/}"
+    log "Using guidelines from ${SOURCE_SKILLS_DIR#"${EXTRACTED_DIR}"/}"
 
     TARBALL_READY=1
 }
@@ -445,6 +474,7 @@ cmd_skills() {
         store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
     fi
 
+    vlog "scope=${scope} root=${root} store=${store_dir}"
     install_skills_to_store "$store_dir"
 
     log ""
@@ -757,7 +787,10 @@ cmd_playwright() {
     before="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
 
     log "Installing Playwright skills via npx (@playwright/cli)..."
-    npx -y @playwright/cli@latest install --skills || die "@playwright/cli install --skills failed"
+    # playwright-cli installs into <cwd>/.claude/skills; run from $HOME so the
+    # skills land globally in ~/.claude/skills, never inside the project.
+    ( cd "$HOME" && npx -y @playwright/cli@latest install --skills ) \
+        || die "@playwright/cli install --skills failed"
 
     local after
     after="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
@@ -863,7 +896,7 @@ cmd_wizard() {
 
     # Step 1: skills
     local sel
-    sel="$(wizard_pick_agent all '[1/5] Install Jmix skills?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent all '[1/5] Install Jmix skills?' "$ALL_AGENTS")"
     if [ "$sel" != "skip" ]; then
         local scope_answer scope="local"
         scope_answer="$(prompt 'Install scope: (l)ocal project dir or (g)lobal user home' 'l')"
@@ -888,7 +921,7 @@ cmd_wizard() {
     fi
 
     # Step 2: agents-md
-    sel="$(wizard_pick_agent all '[2/5] Add Jmix coding guidelines to this directory?' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent all '[2/5] Add Jmix coding guidelines to this directory?' "$ALL_AGENTS")"
     if [ "$sel" != "skip" ]; then
         if prompt_yes_no "Target directory: $(pwd -P). Proceed?" "y"; then
             ensure_tarball
@@ -903,6 +936,7 @@ cmd_wizard() {
     fi
 
     # Step 3: JetBrains MCP
+    # shellcheck disable=SC2086
     sel="$(wizard_pick_agent skip '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' $JETBRAINS_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local agent
@@ -913,7 +947,7 @@ cmd_wizard() {
     fi
 
     # Step 4: Context7 MCP
-    sel="$(wizard_pick_agent skip '[4/5] Connect agent to library docs via Context7 MCP?' $CONTEXT7_AGENTS)"
+    sel="$(wizard_pick_agent skip '[4/5] Connect agent to library docs via Context7 MCP?' "$CONTEXT7_AGENTS")"
     if [ "$sel" != "skip" ]; then
         local key
         key="$(prompt 'Context7 API key' '')"
@@ -930,7 +964,7 @@ cmd_wizard() {
     fi
 
     # Step 5: Playwright
-    sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npx)' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npx)' "$ALL_AGENTS")"
     if [ "$sel" != "skip" ]; then
         local pw_csv
         pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
@@ -950,6 +984,17 @@ cmd_wizard() {
 # =================================================================
 # Main dispatch
 # =================================================================
+
+# Pull global --verbose/--debug out of the args so every subcommand benefits.
+_args=()
+for _a in "$@"; do
+    case "$_a" in
+        --verbose|--debug) VERBOSE=1 ;;
+        *) _args+=("$_a") ;;
+    esac
+done
+set -- ${_args[@]+"${_args[@]}"}
+debug_env
 
 if [ $# -eq 0 ]; then
     cmd_wizard
