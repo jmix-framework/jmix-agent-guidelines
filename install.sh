@@ -438,7 +438,10 @@ cmd_skills() {
     local agents_csv=""
     local scope="global"
 
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
@@ -532,7 +535,10 @@ install_agents_md_for() {
 cmd_agents_md() {
     local agents_csv=""
 
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
@@ -626,7 +632,10 @@ install_jetbrains_for() {
 cmd_mcp_jetbrains() {
     local agents_csv=""
 
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
@@ -728,7 +737,10 @@ cmd_mcp_context7() {
     local agents_csv=""
     local key=""
 
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
@@ -764,7 +776,10 @@ cmd_mcp_context7() {
 
 cmd_playwright() {
     local agents_csv=""
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --agents)
                 [ $# -ge 2 ] || die "--agents requires an argument"
@@ -869,7 +884,10 @@ wizard_pick_agent() {
 }
 
 cmd_wizard() {
+    local _argc=-1
     while [ $# -gt 0 ]; do
+        [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
+        _argc=$#
         case "$1" in
             --version)
                 [ $# -ge 2 ] || die "--version requires an argument"
