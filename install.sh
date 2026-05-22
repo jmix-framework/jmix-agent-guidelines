@@ -53,6 +53,20 @@ require_tool() {
     command -v "$1" >/dev/null 2>&1 || die "$1 not found. Install it and re-run."
 }
 
+# Ensures npx (Node.js) is on PATH. When missing, prints per-OS install guidance
+# and exits (no automatic runtime install).
+require_npx() {
+    command -v npx >/dev/null 2>&1 && return 0
+    err "npx (Node.js) is required for the Playwright step but was not found on PATH."
+    err "Install Node.js (includes npx), then re-run:"
+    case "$(uname -s 2>/dev/null)" in
+        Darwin) err "  macOS:  brew install node    (or download from https://nodejs.org)" ;;
+        Linux)  err "  Linux:  install via your package manager (e.g. 'sudo apt install nodejs npm') or download from https://nodejs.org" ;;
+        *)      err "  See https://nodejs.org/en/download" ;;
+    esac
+    exit 1
+}
+
 # Replaces or installs $dest with a copy of $src. When BACKUP_EXISTING=1, an
 # existing $dest is moved aside to <dest>.bak-<timestamp>; otherwise it is
 # deleted. Prints a per-item log line.
@@ -182,7 +196,7 @@ mcp-context7 options:
   --context7-key K   Context7 API key. Prompted interactively when missing.
 
 playwright options:
-  (uses common --agents flag; requires `npm` on PATH)
+  (uses common --agents flag; requires `npx` (Node.js) on PATH)
 EOF
 }
 
@@ -715,7 +729,7 @@ cmd_mcp_context7() {
 }
 
 # =================================================================
-# Playwright install (npm + playwright-cli)
+# Playwright install (npx @playwright/cli)
 # =================================================================
 
 cmd_playwright() {
@@ -735,20 +749,15 @@ cmd_playwright() {
     local agents
     agents="$(parse_agents_csv "$agents_csv" "playwright")"
 
-    require_tool npm
-
-    log "Installing/upgrading @playwright/cli globally via npm..."
-    npm i -g @playwright/cli@latest || die "npm install of @playwright/cli failed"
-
-    require_tool playwright-cli
+    require_npx
 
     local claude_skills="${HOME}/.claude/skills"
     mkdir -p "$claude_skills" || die "cannot create ${claude_skills}"
     local before
     before="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
 
-    log "Running 'playwright-cli install --skills'..."
-    playwright-cli install --skills || die "playwright-cli install --skills failed"
+    log "Installing Playwright skills via npx (@playwright/cli)..."
+    npx -y @playwright/cli@latest install --skills || die "@playwright/cli install --skills failed"
 
     local after
     after="$(cd "$claude_skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | sort -u)"
@@ -921,7 +930,7 @@ cmd_wizard() {
     fi
 
     # Step 5: Playwright
-    sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npm)' $ALL_AGENTS)"
+    sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npx)' $ALL_AGENTS)"
     if [ "$sel" != "skip" ]; then
         local pw_csv
         pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"

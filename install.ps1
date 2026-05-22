@@ -17,7 +17,7 @@
       install.ps1 agents-md     -Agents CSV [-Version V] [-Ref REF]
       install.ps1 mcp-jetbrains -Agents CSV
       install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
-      install.ps1 playwright    -Agents CSV   # requires npm on PATH
+      install.ps1 playwright    -Agents CSV   # requires npx (Node.js) on PATH
 
     Add -BackupExistingFiles to any subcommand to rename overwritten files/dirs
     to <name>.bak-<timestamp> instead of deleting them.
@@ -105,6 +105,16 @@ function Test-Tool {
     if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) {
         Write-ErrAndExit "$Tool not found. Install it and re-run."
     }
+}
+
+# Ensures npx (Node.js) is on PATH. When missing, prints install guidance and
+# exits (no automatic runtime install).
+function Assert-Npx {
+    if (Get-Command npx -ErrorAction SilentlyContinue) { return }
+    Write-Info 'npx (Node.js) is required for the Playwright step but was not found on PATH.'
+    Write-Info 'Install Node.js (includes npx), then re-run:'
+    Write-Info '  Windows: winget install OpenJS.NodeJS   (or download from https://nodejs.org)'
+    Write-ErrAndExit 'npx not available on PATH'
 }
 
 function Read-Prompt {
@@ -616,20 +626,13 @@ function Invoke-CmdMcpContext7 {
 }
 
 # =================================================================
-# Playwright install (npm + playwright-cli)
+# Playwright install (npx @playwright/cli)
 # =================================================================
 
 function Install-PlaywrightForAgents {
     param([string[]]$Agents)
 
-    Test-Tool -Tool 'npm'
-    Write-Info 'Installing/upgrading @playwright/cli globally via npm...'
-    & npm i -g '@playwright/cli@latest'
-    if ($LASTEXITCODE -ne 0) {
-        Write-ErrAndExit 'npm install of @playwright/cli failed'
-    }
-
-    Test-Tool -Tool 'playwright-cli'
+    Assert-Npx
 
     $claudeSkills = Join-Path $HOME '.claude/skills'
     if (-not (Test-Path $claudeSkills)) {
@@ -641,10 +644,10 @@ function Install-PlaywrightForAgents {
         $before = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
     }
 
-    Write-Info "Running 'playwright-cli install --skills'..."
-    & playwright-cli install --skills
+    Write-Info 'Installing Playwright skills via npx (@playwright/cli)...'
+    & npx -y '@playwright/cli@latest' install --skills
     if ($LASTEXITCODE -ne 0) {
-        Write-ErrAndExit 'playwright-cli install --skills failed'
+        Write-ErrAndExit '@playwright/cli install --skills failed'
     }
 
     $after = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
@@ -794,7 +797,7 @@ function Invoke-Wizard {
     }
 
     # Step 5: Playwright
-    $sel = Read-AgentChoice -Label '[5/5] Install Playwright? (requires npm)' -Options $script:AllAgents
+    $sel = Read-AgentChoice -Label '[5/5] Install Playwright? (requires npx)' -Options $script:AllAgents
     if ($sel[0] -ne 'skip') {
         try {
             Install-PlaywrightForAgents -Agents $sel

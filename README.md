@@ -41,7 +41,7 @@ install.sh skills        --agents CSV   [--scope global|local] [--version V]
 install.sh agents-md     --agents CSV   [--version V]
 install.sh mcp-jetbrains --agents CSV
 install.sh mcp-context7  --agents CSV   [--context7-key KEY]
-install.sh playwright    --agents CSV   # requires npm on PATH
+install.sh playwright    --agents CSV   # requires npx (Node.js) on PATH
 ```
 
 PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `install.ps1 mcp-context7 -Agents claude -Context7Key KEY`, `install.ps1 playwright -Agents claude,codex`, etc.
@@ -59,7 +59,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                                                                                        |
 | `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                           |
 
-> The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step shells out to `npm` and `playwright-cli`, so both must be available on PATH.
+> The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step runs `@playwright/cli` via `npx`, so `npx` (Node.js) must be available on PATH.
 
 ## Manual Installation
 
@@ -215,16 +215,11 @@ Add to your `~/.config/opencode/opencode.json`:
 
 To enable Playwright support:
 
-- Install Playwright CLI globally:
-    ```bash
-    npm i -g @playwright/cli@latest
-    ```
-
 - Install Playwright skills:
     ```bash
-    playwright-cli install --skills
+    npx -y @playwright/cli@latest install --skills
     ```
-    The command above creates Playwrite skills in the `.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
+    The command above creates Playwright skills in the `~/.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
 
 Once set up, you can give the agent instructions like:
 
