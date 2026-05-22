@@ -16,6 +16,9 @@ REPO_NAME="jmix-agent-guidelines"
 
 # Global state populated by ensure_tarball()
 STAGING=""
+# Temp dir for the Playwright install; global so the EXIT trap can clean it
+# after cmd_playwright() returns (function locals are out of scope by then).
+PW_STAGING=""
 EXTRACTED_DIR=""
 SOURCE_SKILLS_DIR=""
 SOURCE_AGENTS_MD=""
@@ -474,7 +477,7 @@ cmd_skills() {
         store_dir="${root}/.skills"
     else
         root="${HOME}"
-        store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
+        store_dir="${HOME}/.agents/.jmix/skills/jmix-${RESOLVED_VERSION_DIR}"
     fi
 
     vlog "scope=${scope} root=${root} store=${store_dir}"
@@ -796,44 +799,55 @@ cmd_playwright() {
 
     require_npx
 
-    local claude_skills="${HOME}/.claude/skills"
-    mkdir -p "$claude_skills" || die "cannot create ${claude_skills}"
-    local before
-    before="$(cd "$claude_skills" && find . -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u)"
+    # Playwright skills always install globally. Mirror the Jmix model: copy the
+    # skills into a canonical store, then per-skill symlink them into each agent
+    # skills dir so they coexist with other skills already present there.
+    local root="${HOME}"
+    local store_dir="${HOME}/.agents/.playwright/skills"
+
+    # @playwright/cli install --skills writes to <cwd>/.claude/skills/<skill>.
+    # Run it inside a private staging dir so nothing leaks into the project or a
+    # real agent dir, then copy the produced skill folders into the store.
+    PW_STAGING="$(mktemp -d 2>/dev/null || mktemp -d -t jmix-playwright)" \
+        || die "cannot create temp dir for Playwright install"
+    trap 'rm -rf ${PW_STAGING:+"$PW_STAGING"} ${STAGING:+"$STAGING"}' INT TERM EXIT
 
     log "Installing Playwright skills via npx (@playwright/cli)..."
-    # playwright-cli installs into <cwd>/.claude/skills; run from $HOME so the
-    # skills land globally in ~/.claude/skills, never inside the project.
-    ( cd "$HOME" && npx -y @playwright/cli@latest install --skills ) \
+    ( cd "$PW_STAGING" && npx -y @playwright/cli@latest install --skills ) \
         || die "@playwright/cli install --skills failed"
 
-    local after
-    after="$(cd "$claude_skills" && find . -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null | sort -u)"
-    local new_skills
-    new_skills="$(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after"))"
+    local produced="${PW_STAGING}/.claude/skills"
+    [ -d "$produced" ] || die "@playwright/cli produced no skills under ${produced}"
 
-    if [ -z "$new_skills" ]; then
-        log "  No new skill folders detected in ${claude_skills}."
-        log "  Playwright skills appear to be up to date for Claude Code."
-    else
-        log "  Playwright skill(s) installed in ${claude_skills}: $(printf '%s' "$new_skills" | tr '\n' ' ')"
-    fi
+    log ""
+    log "Installing Playwright skills into store ${store_dir}"
+    mkdir -p "$store_dir" || die "cannot create store ${store_dir}"
+    local skill name dest count=0
+    for skill in "$produced"/*/; do
+        [ -d "$skill" ] || continue
+        name="$(basename "$skill")"
+        dest="${store_dir}/${name}"
+        write_dest "$skill" "$dest" "$name"
+        count=$((count + 1))
+    done
+    [ "$count" -gt 0 ] || die "no Playwright skill folders found under ${produced}"
 
-    # Replicate the newly-installed skills to the other selected agents.
-    local agent target dest skill
+    log ""
+    log "Linking store skills into agent dirs"
+    local agent rel agent_dir seen=" "
     for agent in $agents; do
-        [ "$agent" = "claude" ] && continue
-        target="${HOME}/$(agent_symlink_rel "$agent")"
-        mkdir -p "$target" || die "cannot create ${target}"
-        for skill in $new_skills; do
-            [ -d "${claude_skills}/${skill}" ] || continue
-            dest="${target}/${skill}"
-            write_dest "${claude_skills}/${skill}" "$dest" "$dest"
-        done
+        rel="$(agent_symlink_rel "$agent")"
+        case "$seen" in
+            *" ${rel} "*) continue ;;
+        esac
+        seen="${seen}${rel} "
+        agent_dir="${root}/${rel}"
+        link_skills_into_dir "$agent_dir" "$store_dir"
+        log "  Linked skills into ${agent_dir}"
     done
 
     log ""
-    log "Done. Playwright skills installed for: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
+    log "Done. Installed Playwright skills store at ${store_dir} and linked: $(printf '%s' "$agents" | tr ' ' ',' | sed 's/,/, /g')"
 }
 
 # =================================================================
@@ -924,7 +938,7 @@ cmd_wizard() {
         if [ "$scope" = "local" ]; then
             root="$(pwd -P)"; store_dir="${root}/.skills"
         else
-            root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
+            root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/jmix-${RESOLVED_VERSION_DIR}"
         fi
         install_skills_to_store "$store_dir" || true
         local agent rel agent_dir seen=" "

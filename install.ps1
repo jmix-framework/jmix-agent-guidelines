@@ -443,7 +443,7 @@ function Invoke-CmdSkills {
         $storeDir = Join-Path $root '.skills'
     } else {
         $root = $HOME
-        $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
+        $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' "jmix-$($script:ResolvedVersionDir)")
     }
 
     Write-Verbose "scope=$resolvedScope root=$root store=$storeDir"
@@ -665,52 +665,65 @@ function Install-PlaywrightForAgents {
 
     Assert-Npx
 
-    $claudeSkills = Join-Path $HOME '.claude/skills'
-    if (-not (Test-Path $claudeSkills)) {
-        New-Item -ItemType Directory -Path $claudeSkills -Force | Out-Null
-    }
+    # Playwright skills always install globally. Mirror the Jmix model: copy the
+    # skills into a canonical store, then per-skill symlink them into each agent
+    # skills dir so they coexist with other skills already present there.
+    $root = $HOME
+    $storeDir = Join-Path $HOME '.agents/.playwright/skills'
 
-    $before = @()
-    if (Test-Path $claudeSkills) {
-        $before = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
-    }
-
-    Write-Info 'Installing Playwright skills via npx (@playwright/cli)...'
-    # playwright-cli installs into <cwd>/.claude/skills; run from $HOME so the
-    # skills land globally in ~/.claude/skills, never inside the project.
-    Push-Location $HOME
-    & npx -y '@playwright/cli@latest' install --skills
-    $playwrightExit = $LASTEXITCODE
-    Pop-Location
-    if ($playwrightExit -ne 0) {
-        Write-ErrAndExit '@playwright/cli install --skills failed'
-    }
-
-    $after = Get-ChildItem -Path $claudeSkills -Directory | Select-Object -ExpandProperty Name
-    $newSkills = $after | Where-Object { $before -notcontains $_ }
-
-    if ($newSkills.Count -eq 0) {
-        Write-Info "  No new skill folders detected in $claudeSkills."
-    } else {
-        Write-Info "  Playwright skill(s) installed in ${claudeSkills}: $($newSkills -join ' ')"
-    }
-
-    foreach ($agent in $Agents) {
-        if ($agent -eq 'claude') { continue }
-        $target = Join-Path $HOME (Get-AgentSymlinkRel -Agent $agent)
-        if (-not (Test-Path $target)) {
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
+    # @playwright/cli install --skills writes to <cwd>/.claude/skills/<skill>.
+    # Run it inside a private staging dir so nothing leaks into the project or a
+    # real agent dir, then copy the produced skill folders into the store.
+    $pwStaging = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-playwright-" + [System.Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $pwStaging -Force | Out-Null
+    try {
+        Write-Info 'Installing Playwright skills via npx (@playwright/cli)...'
+        Push-Location $pwStaging
+        try {
+            & npx -y '@playwright/cli@latest' install --skills
+            $playwrightExit = $LASTEXITCODE
+        } finally {
+            Pop-Location
         }
-        foreach ($skill in $newSkills) {
-            $src = Join-Path $claudeSkills $skill
-            if (-not (Test-Path $src)) { continue }
-            $dest = Join-Path $target $skill
-            Write-Dest -Src $src -Dest $dest -Label $dest
+        if ($playwrightExit -ne 0) {
+            Write-ErrAndExit '@playwright/cli install --skills failed'
         }
-    }
 
-    Write-Info ''
-    Write-Info "Done. Playwright skills installed for: $($Agents -join ', ')"
+        $produced = Join-Path $pwStaging '.claude/skills'
+        if (-not (Test-Path $produced)) {
+            Write-ErrAndExit "@playwright/cli produced no skills under $produced"
+        }
+
+        Write-Info ''
+        Write-Info "Installing Playwright skills into store $storeDir"
+        if (-not (Test-Path $storeDir)) { New-Item -ItemType Directory -Path $storeDir -Force | Out-Null }
+        $count = 0
+        foreach ($skill in Get-ChildItem -Path $produced -Directory) {
+            $dest = Join-Path $storeDir $skill.Name
+            Write-Dest -Src $skill.FullName -Dest $dest -Label $skill.Name
+            $count++
+        }
+        if ($count -eq 0) {
+            Write-ErrAndExit "no Playwright skill folders found under $produced"
+        }
+
+        Write-Info ''
+        Write-Info 'Linking store skills into agent dirs'
+        $seen = @{}
+        foreach ($a in $Agents) {
+            $rel = Get-AgentSymlinkRel -Agent $a
+            if ($seen.ContainsKey($rel)) { continue }
+            $seen[$rel] = $true
+            $agentDir = Join-Path $root $rel
+            New-SkillSymlinks -AgentDir $agentDir -StoreDir $storeDir
+            Write-Info "  Linked skills into $agentDir"
+        }
+
+        Write-Info ''
+        Write-Info "Done. Installed Playwright skills store at $storeDir and linked: $($Agents -join ', ')"
+    } finally {
+        if (Test-Path $pwStaging) { Remove-Item $pwStaging -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 function Invoke-CmdPlaywright {
@@ -776,7 +789,7 @@ function Invoke-Wizard {
                 $wizStoreDir = Join-Path $wizRoot '.skills'
             } else {
                 $wizRoot = $HOME
-                $wizStoreDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
+                $wizStoreDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' "jmix-$($script:ResolvedVersionDir)")
             }
             Install-SkillsToStore -StoreDir $wizStoreDir
             Write-Info ''

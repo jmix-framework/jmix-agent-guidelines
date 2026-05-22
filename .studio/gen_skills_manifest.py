@@ -13,7 +13,7 @@ import os
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Canonical per-scope skill store (relative to the scope root: the user home for
-# "global", the project base for "local"). The global store appends /v<major>.
+# "global", the project base for "local"). The global store appends /jmix-v<major>.
 # Studio reads this from the manifest; install.sh / install.ps1 mirror it.
 STORE = {
     "global": ".agents/.jmix/skills",
