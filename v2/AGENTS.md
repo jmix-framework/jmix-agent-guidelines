@@ -1,11 +1,11 @@
-# Jmix Engineering Guidelines
+# Jmix Coding Guidelines
 
-Use these instructions when working on a Jmix 2.x application.
+Use these instructions when working on a Jmix 2 application.
 
 ## Project Stack
 
 - Java 17
-- Jmix 2.x, Spring Boot 3, Vaadin Flow UI
+- Jmix 2, Spring Boot 3, Vaadin 24
 - Gradle
 - Relational database with Liquibase migrations
 
@@ -29,7 +29,13 @@ Use the most specific skill for the task:
 - Creating reusable Flow UI fragments or fragment renderers: `jmix-create-fragment`
 - Adding or changing tests: `jmix-create-test`
 
-If a tool-specific reference system is available, use it for API confirmation. Do not block work if such tools are unavailable.
+## Tooling
+
+- If Context7 MCP is available, use it to confirm unfamiliar Jmix APIs and to find Jmix code examples.
+- If JetBrains IDEA MCP is available and the project is open in IntelliJ IDEA, use it to check modified files for inspections and errors.
+- For UI changes, if Playwright is available and the application can be run, use it to verify navigation and user interactions in the browser.
+- Use PlayWright MCP if available (test UI before give answer and end session)
+- Do not block work if these tools are unavailable; state what was checked manually instead.
 
 ## Global Rules
 
@@ -41,7 +47,7 @@ If a tool-specific reference system is available, use it for API confirmation. D
 - Do not instantiate Jmix entities with constructors. Use `DataManager.create()`, `Metadata.create()`, or `DataContext.create()` depending on context.
 - Do not hardcode user-visible UI text. Use message keys.
 - Do not invent XML component attributes, Vaadin icon names, or Jmix action ids. Reuse existing project patterns or omit optional decoration.
-- Before using a Jmix or Flow UI API that is not already used in the project, search the current project for a compiled example and follow that pattern.
+- Before using a Jmix or Vaadin API that is not already used in the project, search the current project for a working example; if none exists and Context7 MCP is available, use it to confirm the API and follow official examples.
 - Do not edit generated frontend files.
 
 ## Required Cross-Cutting Work

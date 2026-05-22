@@ -1,11 +1,11 @@
 ---
 name: jmix-add-entity-event-listener
-description: Add Jmix entity event listeners for lifecycle defaults, immutable records, and side effects.
+description: Add Jmix entity lifecycle event listeners to perform additional actions with saved or loaded entities.
 ---
 
 # Add Entity Event Listener
 
-Use this skill when business logic must react to entity creation, update, delete, or save.
+Use this skill when business logic must react to entity save, change, delete, or load events.
 
 ## Steps
 
@@ -13,21 +13,25 @@ Use this skill when business logic must react to entity creation, update, delete
 2. Use `org.springframework.context.event.EventListener`.
 3. Use exact Jmix imports:
    - `io.jmix.core.event.EntityChangedEvent`
+   - `io.jmix.core.event.EntityLoadingEvent`
    - `io.jmix.core.event.EntitySavingEvent`
 4. For created entities, load by `event.getEntityId()` when related data is needed.
 5. If you specify a custom fetch plan, include every scalar and reference property read later.
 6. For deleted entities, do not load `event.getEntityId()`; use old values or old reference ids from `event.getChanges()`.
-7. Use `EntitySavingEvent` or a before-commit `@EventListener` path for validation and required defaults.
-8. Put multi-entity changes in a transactional service method when atomicity matters.
-9. Reject unsupported updates/deletes inside the event path before treating work as complete.
-10. Search the changed code for `@TransactionalEventListener`; if the listener performs validation, rejects updates/deletes, sets required defaults, or performs required synchronous side effects, replace it with `@EventListener` plus `EntitySavingEvent`/`EntityChangedEvent` or another before-commit path.
-11. Add tests or at least compile/startup validation for the event listener.
+7. Use `EntitySavingEvent` for defaults or transformations that must happen before data is saved.
+8. Use `EntityLoadingEvent` for initializing non-persistent attributes from already loaded local persistent state.
+9. Use a before-commit `@EventListener` path for validation that must reject the current save/remove operation.
+10. Put multi-entity changes in a transactional service method when atomicity matters.
+11. Reject unsupported updates/deletes inside the event path before treating work as complete.
+12. Search the changed code for `@TransactionalEventListener`; if the listener performs validation, rejects updates/deletes, sets required defaults, or performs required synchronous side effects, replace it with `@EventListener` plus `EntitySavingEvent`/`EntityChangedEvent` or another before-commit path.
+13. Add tests or at least compile/startup validation for the event listener.
 
 ## Listener Template
 
 ```java
 import io.jmix.core.DataManager;
 import io.jmix.core.event.EntityChangedEvent;
+import io.jmix.core.event.EntityLoadingEvent;
 import io.jmix.core.event.EntitySavingEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -62,6 +66,12 @@ public class LedgerEntryEventListener {
         if (event.getEntity().getCreatedDate() == null) {
             event.getEntity().setCreatedDate(LocalDateTime.now());
         }
+    }
+
+    @EventListener
+    public void onLedgerEntryLoading(EntityLoadingEvent<LedgerEntry> event) {
+        LedgerEntry entry = event.getEntity();
+        entry.setDisplayLabel(entry.getNumber() + " / " + entry.getType());
     }
 }
 ```
@@ -99,12 +109,21 @@ Use normal Spring `@EventListener` for logic that must affect the current save/r
 
 `@TransactionalEventListener` is for after-transaction reactions such as notifications or integration events. Do not use it when failure must roll back or reject the current persistence operation.
 
-Use `EntityChangedEvent.Type.DELETED` to detect deletes; handle removal checks through `EntityChangedEvent`, not a separate removal event class. For delete-side logic, use `event.getChanges().getOldValue(...)`, `getOldReferenceId(...)`, or the corresponding old collection methods instead of loading the removed entity.
+Use `EntityChangedEvent.Type.DELETED` to detect deletes. Deleted entity instances cannot be loaded by `event.getEntityId()` because they have already been removed, so delete-side logic must use the old values and old reference ids available from `event.getChanges()`.
+
+## EntitySavingEvent And EntityLoadingEvent
+
+`EntitySavingEvent` contains the entity instance before it is written to the data store. Use it for required defaults, value normalization, and transformations that must be persisted with the current save operation.
+
+`EntityLoadingEvent` contains the loaded entity instance after it is read from the data store. Use it to initialize non-persistent attributes from local persistent fields, for example decrypting a stored value into a transient UI-facing property.
+
+For `EntitySavingEvent` and `EntityLoadingEvent`, read and write only local attributes of the event entity. Do not assume referenced entities are loaded or that loading references inside an `EntityLoadingEvent` will cascade loading events predictably.
 
 ## Forbidden
 
 - Wrong event import packages such as `io.jmix.core.entity.EntityChangedEvent`; use `io.jmix.core.event.EntityChangedEvent`.
 - Assuming `EntityChangedEvent` directly contains the full entity instance.
+- Assuming `EntityLoadingEvent` is a replacement for fetching references or running cross-entity queries.
 - Reading an entity property that is omitted from a custom fetch plan.
 - `@TransactionalEventListener` for validation, required synchronous side effects, or immutable-record enforcement.
 - Required persistence defaults set only by `InitEntityEvent`.

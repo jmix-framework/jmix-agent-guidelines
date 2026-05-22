@@ -84,7 +84,7 @@ If the fragment subscribes to host events, create and add it before that host ev
 
 ## Fragment Facets
 
-Fragment facets are available only in Jmix 2.x projects whose fragment descriptor schema supports a `<facets>` element. Check existing fragment XML, the project XSD, or the project docs before using them.
+Fragment facets are available only in Jmix 2 projects whose fragment descriptor schema supports a `<facets>` element. Check existing fragment XML, the project XSD, or the project docs before using them.
 
 If supported, use fragment-specific facet names:
 
