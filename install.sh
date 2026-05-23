@@ -375,6 +375,20 @@ agent_symlink_rel() {
     esac
 }
 
+# Removes a path only when it is a dangling (broken) symlink, so a later
+# `mkdir -p` does not fail with ENOENT on macOS/BSD when a path component points
+# at a missing target (e.g. a leftover ~/.junie symlink). A symlink that resolves
+# to an existing directory is left untouched.
+clear_dangling_symlink() {
+    local p="$1"
+    [ -L "$p" ] && [ ! -e "$p" ] || return 0
+    if [ "$BACKUP_EXISTING" -eq 1 ]; then
+        mv "$p" "${p}.bak-${TIMESTAMP}" 2>/dev/null || rm -f "$p"
+    else
+        rm -f "$p"
+    fi
+}
+
 # Creates (or refreshes) a whole-dir symlink $1 -> $2. Replaces an existing
 # symlink; an existing real dir is backed up (when --backup-existing-files) or
 # removed. Requires symlink support; fails otherwise.
@@ -418,6 +432,9 @@ install_skills_to_store() {
 link_skills_into_dir() {
     local agent_dir="$1"
     local store_dir="$2"
+    # Clear a broken-symlink agent base/dir (e.g. ~/.junie -> missing) so mkdir works.
+    clear_dangling_symlink "$(dirname "$agent_dir")"
+    clear_dangling_symlink "$agent_dir"
     mkdir -p "$agent_dir" || die "cannot create ${agent_dir}"
     local skill name
     for skill in "$store_dir"/*/; do
@@ -477,7 +494,7 @@ cmd_skills() {
         store_dir="${root}/.skills"
     else
         root="${HOME}"
-        store_dir="${HOME}/.agents/.jmix/skills/jmix-${RESOLVED_VERSION_DIR}"
+        store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
     fi
 
     vlog "scope=${scope} root=${root} store=${store_dir}"
@@ -938,7 +955,7 @@ cmd_wizard() {
         if [ "$scope" = "local" ]; then
             root="$(pwd -P)"; store_dir="${root}/.skills"
         else
-            root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/jmix-${RESOLVED_VERSION_DIR}"
+            root="${HOME}"; store_dir="${HOME}/.agents/.jmix/skills/${RESOLVED_VERSION_DIR}"
         fi
         install_skills_to_store "$store_dir" || true
         local agent rel agent_dir seen=" "

@@ -422,10 +422,30 @@ function Install-SkillsToStore {
     }
 }
 
+# Removes a path only when it is a dangling (broken) symlink, so directory creation
+# does not fail when an agent base/dir (e.g. ~/.junie) points at a missing target.
+# A symlink that resolves to an existing directory is left untouched.
+function Clear-DanglingSymlink {
+    param([string]$Path)
+    $item = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if ($null -eq $item -or -not $item.LinkType) { return }
+    $target = @($item.Target) | Select-Object -First 1
+    if ($target -and (Test-Path -LiteralPath $target)) { return }
+    if ($BackupExistingFiles) {
+        Rename-Item -LiteralPath $Path -NewName "$([System.IO.Path]::GetFileName($Path)).bak-$($script:Timestamp)" -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Force -Recurse -ErrorAction SilentlyContinue
+    }
+}
+
 # Per-skill symlinks: link each store skill folder into the agent skills dir,
 # so Jmix skills coexist with other skills already present there.
 function New-SkillSymlinks {
     param([string]$AgentDir, [string]$StoreDir)
+    # Clear a broken-symlink agent base/dir (e.g. ~/.junie -> missing) so creation works.
+    Clear-DanglingSymlink -Path (Split-Path -Parent $AgentDir)
+    Clear-DanglingSymlink -Path $AgentDir
     if (-not (Test-Path $AgentDir)) { New-Item -ItemType Directory -Path $AgentDir -Force | Out-Null }
     foreach ($skill in Get-ChildItem -Path $StoreDir -Directory) {
         $link = Join-Path $AgentDir $skill.Name
@@ -443,7 +463,7 @@ function Invoke-CmdSkills {
         $storeDir = Join-Path $root '.skills'
     } else {
         $root = $HOME
-        $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' "jmix-$($script:ResolvedVersionDir)")
+        $storeDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
     }
 
     Write-Verbose "scope=$resolvedScope root=$root store=$storeDir"
@@ -789,7 +809,7 @@ function Invoke-Wizard {
                 $wizStoreDir = Join-Path $wizRoot '.skills'
             } else {
                 $wizRoot = $HOME
-                $wizStoreDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' "jmix-$($script:ResolvedVersionDir)")
+                $wizStoreDir = Join-Path $HOME (Join-Path '.agents/.jmix/skills' $script:ResolvedVersionDir)
             }
             Install-SkillsToStore -StoreDir $wizStoreDir
             Write-Info ''
