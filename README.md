@@ -12,11 +12,63 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
       - Optional subdirectories with examples or other materials.
 
-## How to Use
+## Quick Install
 
-To enable these guidelines for your AI agent, follow the steps below. 
+A single command launches an interactive wizard that walks through every setup step: 
+installing skills, adding guidelines registering the recommended MCP servers.
 
-Take the files from the `v2/` directory if you are using Jmix 2.
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash
+```
+
+**Windows (PowerShell 5+):**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
+```
+
+> In Jmix Studio plugin, the same wizard is available from the **Jmix AI Agents Toolkit** action.
+
+### Non-Interactive Subcommands
+
+Use these to run a single step without the wizard. Every subcommand takes the
+same `--agents CSV` flag:
+
+```bash
+install.sh skills        --agents CSV   [--scope global|local] [--version V]
+install.sh agents-md     --agents CSV   [--version V]
+install.sh mcp-jetbrains --agents CSV
+install.sh mcp-context7  --agents CSV   [--context7-key KEY]
+install.sh playwright    --agents CSV   # requires npx (Node.js) on PATH
+```
+
+PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `install.ps1 mcp-context7 -Agents claude -Context7Key KEY`, `install.ps1 playwright -Agents claude,codex`, etc.
+
+**CSV** = comma-separated agent list (e.g. `claude,codex`) or a single value (e.g. `claude`).
+
+### Flags
+
+| Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                                                                                       |
+|:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                                                                                            |
+| `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                                                                                       |
+| `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
+| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
+| `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                                                                                        |
+| `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                           |
+| `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
+
+**Skills storages:**
+- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
+- **Local:** store at `<project>/.skills/`; each `jmix-*` folder symlinked into `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
+
+> The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step runs `@playwright/cli` via `npx`, so `npx` (Node.js) must be available on PATH.
+
+## Manual Installation
+
+If you prefer not to run the script, follow these steps. Take the files from the `v2/` directory if you are using Jmix 2.
 
 ### 1. Project Guidelines
 
@@ -178,7 +230,7 @@ To enable Playwright support:
     ```bash
     playwright-cli install --skills
     ```
-    The command above creates Playwrite skills in the `.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
+    The command above creates Playwright skills in the `~/.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
 
 Once set up, you can give the agent instructions like:
 

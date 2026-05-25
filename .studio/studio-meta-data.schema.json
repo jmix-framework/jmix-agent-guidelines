@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/.studio/studio-meta-data.schema.json",
+  "title": "Jmix Studio install-flow metadata",
+  "description": "Metadata consumed by Jmix Studio to drive the AI Agent Toolkit wizard. Defines a sequence of multi-input steps; each step optionally executes a shell command assembled from collected input values.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "install-flow"
+  ],
+  "properties": {
+    "install-flow": {
+      "type": "object",
+      "description": "Top-level container for the wizard flow.",
+      "required": [
+        "steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "steps": {
+          "type": "array",
+          "description": "Steps shown to the user in order. Steps with a 'runIf' that points to a falsy earlier input id are skipped entirely.",
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "description": "A single step of the install flow. Steps may collect multiple inputs and optionally execute a shell command.",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "message"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Optional step identifier used for diagnostics and per-step state restoration. Command substitution uses input ids, not step ids."
+        },
+        "title": {
+          "type": "string",
+          "description": "Main step title shown on the top."
+        },
+        "message": {
+          "type": "string",
+          "description": "Header text shown above the inputs."
+        },
+        "runIf": {
+          "type": "string",
+          "description": "If set, the step is rendered only when the referenced earlier input id has a truthy value. Falsy values: checkbox=false, options-multi=empty, userInput=blank."
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Inputs collected from the user on this step. Each input has its own id used for ${id} command substitution.",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/inputUserInput"
+              },
+              {
+                "$ref": "#/$defs/inputOptions"
+              },
+              {
+                "$ref": "#/$defs/inputCheckbox"
+              }
+            ]
+          }
+        },
+        "command": {
+          "$ref": "#/$defs/commandByOs",
+          "description": "Optional per-OS shell command. Supports ${id} placeholders that reference input ids (from this step or earlier) plus the implicit ${JMIX_VERSION} placeholder. The command is skipped when any input on this step has a falsy value."
+        }
+      }
+    },
+    "inputUserInput": {
+      "type": "object",
+      "description": "Free-text input. Optionally validated against a regular expression.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional row prefix shown to the left of the text field."
+        },
+        "type": {
+          "const": "userInput"
+        },
+        "regex": {
+          "type": "string",
+          "description": "Java regular expression. The full value must match (Regex.matches semantics)."
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "Inline error shown when the regex does not match. Falls back to a generic message."
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Hint shown inside the text field when it is empty."
+        },
+        "default": {
+          "type": "string",
+          "description": "Initial value pre-filled in the field."
+        }
+      }
+    },
+    "inputOptions": {
+      "type": "object",
+      "description": "Choice between predefined values. Single-select renders as a combo box; multi-select renders as a check-box list.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "choices"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional row prefix shown to the left of the widget."
+        },
+        "type": {
+          "const": "options"
+        },
+        "multi": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, multiple choices may be selected; the resolved value is a comma-joined list of chosen 'value' fields."
+        },
+        "choices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/optionsChoice"
+          }
+        }
+      }
+    },
+    "optionsChoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "label"
+      ],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Value substituted into commands when this choice is selected."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable label shown in the UI."
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, this choice is preselected. For single-select inputs the last 'default: true' wins; for multi-select all matching choices are preselected."
+        }
+      }
+    },
+    "inputCheckbox": {
+      "type": "object",
+      "description": "Single boolean toggle. The 'label' field doubles as the text rendered next to the checkbox.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Unique input identifier used in command substitution via ${id}."
+        },
+        "label": {
+          "type": "string",
+          "description": "Text shown next to the checkbox."
+        },
+        "type": {
+          "const": "checkbox"
+        },
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Initial checked state."
+        },
+        "valueIfTrue": {
+          "type": "string",
+          "description": "Substitution string when the checkbox is checked. Defaults to 'true'."
+        },
+        "valueIfFalse": {
+          "type": "string",
+          "description": "Substitution string when the checkbox is unchecked. Defaults to 'false'."
+        }
+      }
+    },
+    "commandByOs": {
+      "type": "object",
+      "description": "Per-OS shell command. The host OS is detected via SystemInfo and the corresponding entry is executed.",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "windows": {
+          "type": "string",
+          "description": "Command executed via 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command'."
+        },
+        "macos": {
+          "type": "string",
+          "description": "Command executed via '/bin/bash -c'."
+        },
+        "linux": {
+          "type": "string",
+          "description": "Command executed via '/bin/bash -c'."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+name: Update skills manifest
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'v*/skills/**'
+      - '.studio/gen_skills_manifest.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      - name: Generate manifest
+        run: python3 .studio/gen_skills_manifest.py
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- .studio/skills-manifest.json; then
+            echo "manifest unchanged"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .studio/skills-manifest.json
+            git commit -m "chore: update skills-manifest.json [skip ci]"
+            git push
+          fi

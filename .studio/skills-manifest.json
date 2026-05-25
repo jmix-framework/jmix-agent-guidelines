@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "store": {
+    "global": ".agents/.jmix/skills",
+    "local": ".skills"
+  },
+  "versions": {
+    "v2": {
+      "sha256": "d2d53b6cc53b623c51d05611fc48908342d4cdda2afeefe5289d69eac3c4c2a7",
+      "skills": [
+        "jmix-dto",
+        "jmix-entities",
+        "jmix-enums",
+        "jmix-fetch-plans",
+        "jmix-fragments",
+        "jmix-i18n",
+        "jmix-liquibase",
+        "jmix-security-roles",
+        "jmix-services",
+        "jmix-testing",
+        "jmix-views"
+      ]
+    }
+  }
+}
