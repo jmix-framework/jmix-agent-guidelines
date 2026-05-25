@@ -1,148 +1,101 @@
-# Coding Guidelines
+# Jmix Coding Guidelines
 
-This file provides guidance to AI coding agents when working with code in this repository.
+Use these instructions when working on a Jmix 2 application.
 
-## Skills and MCP
+## Project Stack
 
-- For detailed guidance on specific Jmix features, ALWAYS use the Skill tool and available Jmix skills.
-- Use Context7 jmix-framework/jmix-context7 library for Jmix reference information and code examples.
-- Use Jetbrains MCP to check file problems with `get_file_problems("path/to/file.ext", onlyErrors=false)`
-
-## Project
-
-Technology Stack:
 - Java 17
-- Jmix 2.8 (Spring Boot 3, Vaadin Flow UI)
-- Relational database
-- Gradle build system
+- Jmix 2, Spring Boot 3, Vaadin 24
+- Gradle
+- Relational database with Liquibase migrations
 
-### Project Structure
+## Skill Routing
 
-Standard Gradle project layout with `src/main` and `src/test` directories. Java classes are placed in `src/main/java`, resources in `src/main/resources`.
+Use the most specific skill for the task:
 
-The codebase follows a modular organization under the base package:
+- Creating or changing a persistent entity: `jmix-create-entity`
+- Creating an enum used by an entity: `jmix-create-enum`
+- Creating a list view: `jmix-create-list-view`
+- Creating a detail view: `jmix-create-detail-view`
+- Creating parent-child composition editing: `jmix-create-composition-detail-view`
+- Implementing service-layer business logic: `jmix-create-service`
+- Opening an entity detail dialog from a button/action: `jmix-add-dialog-detail-flow`
+- Adding entity lifecycle/event business logic: `jmix-add-entity-event-listener`
+- Adding or changing database schema: `jmix-create-liquibase-changelog`
+- Creating or changing resource roles: `jmix-create-resource-role`
+- Adding user-visible text or entity/enum captions: `jmix-add-i18n-keys`
+- Configuring fetch plans or fixing unfetched/N+1 loading issues: `jmix-configure-fetch-plan`
+- Creating DTO entities or UI-bound non-persistent models: `jmix-create-dto-entity`
+- Creating reusable Flow UI fragments or fragment renderers: `jmix-create-fragment`
+- Adding or changing tests: `jmix-create-test`
 
-- `entity/` - Domain entities
-- `service/` - Business logic layer
-- `view/` - UI layer
-    - Each view has a Java controller and XML layout descriptor
-    - Views are organized by entity (client, order, etc.)
-- `security/` - Role-based access control with roles interfaces
+## Tooling
 
-Tests are organized in packages by feature domain. The `test_support` package provides utilities for testing.
+- If Context7 MCP is available, use it to confirm unfamiliar Jmix APIs and to find Jmix code examples.
+- If JetBrains MCP is available and the project is open in IntelliJ IDEA, use it to check modified files for inspections and errors.
+- For UI changes, if Playwright is available and the application can be run, use it to verify navigation and user interactions in the browser.
+- Do not block work if these tools are unavailable; state what was checked manually instead.
 
-## Build & Run Commands
+## Global Rules
 
-### Development
+- Prefer Jmix APIs and generated project patterns over raw framework code.
+- For change requests on an existing feature, preserve existing behavior and constraints unless the new request explicitly changes them. Inspect current entities, views, listeners, roles, and changelogs before editing.
+- Use `DataManager` for normal CRUD. Use `EntityManager` only for bulk/native operations that `DataManager` cannot express, and only inside an explicit transaction.
+- Keep business logic in services or Spring event listeners, not in view controllers.
+- Do not use Lombok on Jmix entities.
+- Do not instantiate Jmix entities with constructors. Use `DataManager.create()`, `Metadata.create()`, or `DataContext.create()` depending on context.
+- Do not hardcode user-visible UI text. Use message keys.
+- Do not invent XML component attributes, Vaadin icon names, or Jmix action ids. Reuse existing project patterns or omit optional decoration.
+- Before using a Jmix or Vaadin API that is not already used in the project, search the current project for a working example; if none exists and Context7 MCP is available, use it to confirm the API and follow official examples.
+- Do not edit generated frontend files.
 
-```bash
-# Run application (starts on http://localhost:8080, log in as admin/admin)
-./gradlew bootRun
-```
+## Required Cross-Cutting Work
 
-### Testing
+For each new persistent entity, complete all related artifacts:
 
-```bash
-# Run all tests
-./gradlew test
+- Entity class with Jmix/JPA metadata.
+- Liquibase changelog included from the root changelog.
+- Message keys for entity, attributes, enum values, view titles, buttons, and actions.
+- List/detail views when the entity is user-facing.
+- Resource role policies for entity operations, attributes, views, and menu items.
 
-# Run specific test class
-./gradlew test --tests "com.company.sample.order.OrderServiceTest"
+For each new user-facing view:
 
-# Run with specific test method
-./gradlew test --tests "com.company.sample.order.OrderServiceTest.testOrderCalculations"
-```
+- Java controller and XML descriptor.
+- Stable view id.
+- Menu entry for top-level list views only.
+- Message keys for titles, labels, and buttons.
+- View policies for every role that can open it, including dialog-only detail views.
+- Visible buttons or menu items for every action the user must be able to trigger.
+- Typed form components that match property types.
 
-## Development Guidelines
+For each new business operation:
 
-Refer to the relevant skills for detailed implementation patterns.
+- Put the operation in a service or listener, not in a view.
+- Define clear transaction boundaries.
+- Prefer `DataManager` for CRUD.
+- Keep UI notifications, dialogs, and components out of services.
+- Defaults for required persistent fields must work outside UI-only paths.
 
-### Working with Entities
+For each DTO entity or UI-bound non-persistent model:
 
-- JPA entities: use `@JmixEntity`, UUID + `@JmixGeneratedValue`, `@Version`, `@InstanceName`
-- Relationships: Use `@Composition` for parent-child aggregates
-- Computed properties: Use `@JmixProperty` with `@DependsOnProperties` for caching expensive calculations
-- No Lombok on entities
-- When asked to create entity:
-  - Java class with UUID + Version + InstanceName
-  - Liquibase changelog + include in `changelog.xml`
-  - Messages in ALL locale files (`messages.properties`, `messages_*.properties`)
-- Instantiate entities using `Metadata.create()` or `DataManager.create()` depending on what is available in the class. Don't use entity constructor directly.
+- Use Jmix DTO metadata, not JPA annotations.
+- Provide a stable `@JmixId` when identity matters.
+- Add message keys when the model is shown in UI or exposed with localized captions.
+- Keep DTO entities out of Liquibase unless they are backed by an explicit custom persistence mechanism.
 
-### Working with Services
+For each reusable UI fragment:
 
-- Injection: Use constructor injection, not field injection
+- Create both controller and XML descriptor.
+- Keep fragment XML self-contained or explicitly mark host-provided data components.
+- Use fragment-specific facets when needed.
+- Add message keys for user-visible fragment text.
 
-### Data Access
+## Validation Before Finishing
 
-- Data access: Use `DataManager` (NOT `EntityManager`) and its fluent data loading interface for queries (see jmix-services skill))
-- Fetch plans: Build optimized fetch plans to avoid N+1 queries (see jmix-fetch-plans skill))
-- Transactions: Annotate with `@Transactional` when needed
-
-### Working with Views
-
-- View descriptors: XML files in `src/main/resources/**/view/**`
-- Controllers: Java classes with `@ViewController` and `@ViewDescriptor` annotations, extend `StandardListView` / `StandardDetailView`
-- Navigation: Use `ViewNavigators` for programmatic navigation between views
-- When asked to create view:
-  - XML descriptor + Java controller
-  - Menu entry in `menu.xml`
-  - Messages for title/labels in ALL locale files
-
-### Working with Security
-
-- Resource roles: Define as interfaces annotated with `@ResourceRole` in `security/` package and add policy annotations on methods
-- Entity policies: Use `@EntityPolicy` for CRUD operations
-- Attribute policies: Use `@EntityAttributePolicy` for field-level access
-- View/Menu policies: Use `@ViewPolicy` and `@MenuPolicy` for UI access control
-
-### Database Migrations
-
-Liquibase changelogs are in `src/main/resources/**/liquibase/changelog/**.xml`:
-- Organized by step numbers (`010-some-description.xml`, `020-other-description.xml`, etc.) or in hieracrhical time-based structure (`2026/02/19-105244-customer.xml`, `2026/02/20-120315-order.xml`)
-- Include new changelogs to the main `changelog.xml`
-- Run automatically on application startup
-
-### Tests
-
-- Prefer integration tests with `@SpringBootTest` for business logic and UI tests with `@UiTest`.
-- Test database with automatic schema creation via Liquibase.
-
-### Patterns
-
-- Business logic in services, not in views
-- Dependency Injection
-    - Views: `@ViewComponent` for components defined in XML (visual components, data containers, data loaders, MessageBundle, DataContext)
-    - Views: `@Autowired` for Spring beans (DataManager, DialogWindows, etc.)
-    - Services: Constructor injection only
-
-### Forbidden
-
-- Lombok on entities
-- Creating entity instances by constructor
-- EntityManager
-- Business logic in views
-- Hardcoded UI text — ALL labels, titles, buttons MUST use `msg://` keys
-- Single-locale messages — ALWAYS add to ALL locale files
-- Edits in `frontend/generated/`
-
-### Validation Checklist
-
-- Entity: UUID + Version + InstanceName present
-- Changelog added to `changelog.xml`
-- Messages added for all components (entity, enum, view titles, labels)
-- View: XML + Java pair; menu updated
-- Security: role covers entity/view/menu
-
-## Development Workflow
-
-After writing or modifying code, validate using this sequence:
-
-1. **Check file problems** — if `jetbrains` MCP available, use it to check file problems for each modified file with `get_file_problems("path/to/file.ext", onlyErrors=false)`
-2. **Write tests** — create/update tests for new functionality
-3. **Run tests** — `./gradlew test` to verify nothing is broken
-4. **UI verification** (for views) — if `playwright` MCP available and app is running:
-    - Navigate to the view
-    - Verify data displays correctly
-    - Click or do things that should trigger UI logic
-    - Test CRUD operations
+- Run the smallest relevant compile/test command available for the change.
+- Read compile and startup failures; fix deterministic failures before reporting completion.
+- Search changed XML and Java for obvious drift before reporting completion: table names in JPQL, unresolved `msg://` keys, hardcoded visible labels, missing components referenced by `urlQueryParameters`, raw Vaadin dialogs for Jmix workflows, unsafe loader parameter handling, after-commit listeners used for validation or required mutations, and form components that do not match property types.
+- Compare resource role menu policies against actual `menu.xml` item ids or view ids.
+- For update tasks, compare touched artifacts against their previous constraints and defaults before reporting completion.
+- If tests cannot be run, state the exact blocker and what was validated instead.
