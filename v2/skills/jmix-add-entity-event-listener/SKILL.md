@@ -26,7 +26,7 @@ Use this skill when business logic must react to entity save, change, delete, or
 12. Search the changed code for `@TransactionalEventListener`; if the listener performs validation, rejects updates/deletes, sets required defaults, or performs required synchronous side effects, replace it with `@EventListener` plus `EntitySavingEvent`/`EntityChangedEvent` or another before-commit path.
 13. Add tests or at least compile/startup validation for the event listener.
 
-## Listener Template
+## EntityChangedEvent Listener Template
 
 ```java
 import io.jmix.core.DataManager;
@@ -78,7 +78,7 @@ public class LedgerEntryEventListener {
 
 ## Fetch Plan Safety
 
-For non-deleted events, the loaded entity must contain every property the listener reads. The safest default is loading by event id with the normal plan:
+For non-deleted events, the loaded entity should contain every property the listener reads. The safest default is loading by event id with the normal plan:
 
 ```java
 LedgerEntry entry = dataManager.load(event.getEntityId()).one();
@@ -89,8 +89,8 @@ For non-deleted events, if you use a custom fetch plan, add all accessed scalar 
 ```java
 LedgerEntry entry = dataManager.load(LedgerEntry.class)
         .id(event.getEntityId())
-        .fetchPlan(fp -> fp.addFetchPlan("_base")
-                .add("account", "_base"))
+        .fetchPlan(fp -> fp.addFetchPlan(FetchPlan.BASE)
+                .add("account", FetchPlan.BASE))
         .one();
 
 ledgerService.apply(entry.getAccount().getId(), entry.getAmount(), entry.getType());
@@ -111,7 +111,7 @@ Use normal Spring `@EventListener` for logic that must affect the current save/r
 
 Use `EntityChangedEvent.Type.DELETED` to detect deletes. Deleted entity instances cannot be loaded by `event.getEntityId()` because they have already been removed, so delete-side logic must use the old values and old reference ids available from `event.getChanges()`.
 
-## EntitySavingEvent And EntityLoadingEvent
+## EntitySavingEvent and EntityLoadingEvent
 
 `EntitySavingEvent` contains the entity instance before it is written to the data store. Use it for required defaults, value normalization, and transformations that must be persisted with the current save operation.
 
@@ -126,6 +126,5 @@ For `EntitySavingEvent` and `EntityLoadingEvent`, read and write only local attr
 - Assuming `EntityLoadingEvent` is a replacement for fetching references or running cross-entity queries.
 - Reading an entity property that is omitted from a custom fetch plan.
 - `@TransactionalEventListener` for validation, required synchronous side effects, or immutable-record enforcement.
-- Required persistence defaults set only by `InitEntityEvent`.
 - Putting UI code in entity listeners.
 - Side effects without an explicit service method when several entities must stay consistent.

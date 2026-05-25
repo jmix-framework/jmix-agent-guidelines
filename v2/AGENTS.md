@@ -32,9 +32,8 @@ Use the most specific skill for the task:
 ## Tooling
 
 - If Context7 MCP is available, use it to confirm unfamiliar Jmix APIs and to find Jmix code examples.
-- If JetBrains IDEA MCP is available and the project is open in IntelliJ IDEA, use it to check modified files for inspections and errors.
+- If JetBrains MCP is available and the project is open in IntelliJ IDEA, use it to check modified files for inspections and errors.
 - For UI changes, if Playwright is available and the application can be run, use it to verify navigation and user interactions in the browser.
-- Use PlayWright MCP if available (test UI before give answer and end session)
 - Do not block work if these tools are unavailable; state what was checked manually instead.
 
 ## Global Rules
