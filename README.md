@@ -29,16 +29,18 @@ Copy the `AGENTS.md` file from this repository to the root of your Jmix applicat
 
 ### 2. Agent Skills
 
-The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally.
+The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally or per-project.
 
-Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your home directory:
+Before installing the skills, remove previous versions of the skills from the agent's project or user home directory.
 
-| Agent       | Skills Folder Path           |
-|:------------|:-----------------------------|
-| Claude Code | `~/.claude/skills/`          |
-| Codex       | `~/.codex/skills/`           |
-| OpenCode    | `~/.config/opencode/skills/` |
-| Junie       | `~/.junie/skills/`           |
+Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your project or user home directory:
+
+| Agent       | Project Skills Folder Path | Global Skills Folder Path    |
+|:------------|:---------------------------|:-----------------------------|
+| Claude Code | `.claude/skills/`          | `~/.claude/skills/`          |
+| Codex       | `.codex/skills/`           | `~/.codex/skills/`           |
+| OpenCode    | `.opencode/skills`         | `~/.config/opencode/skills/` |
+| Junie       | `.junie/skills`            | `~/.junie/skills/`           |
 
 #### Example
 
