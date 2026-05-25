@@ -60,6 +60,10 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                           |
 | `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
 
+**Skills storages:**
+- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
+- **Local:** store at `<project>/.skills/`; each `jmix-*` folder symlinked into `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
+
 > The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step runs `@playwright/cli` via `npx`, so `npx` (Node.js) must be available on PATH.
 
 ## Manual Installation
@@ -80,8 +84,6 @@ Copy the `AGENTS.md` file from this repository to the root of your Jmix applicat
 The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally or per-project.
 
 Before installing the skills, remove previous versions of the skills from the agent's project or user home directory.
-- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.agents/skills` (Codex, OpenCode), `~/.claude/skills` (Claude Code), `~/.junie/skills` (Junie).
-- **Local:** store at `<project>/.skills/`; each `jmix-*` folder symlinked into `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
 
 Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your project or user home directory:
 
