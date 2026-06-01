@@ -123,11 +123,16 @@ function Write-ErrAndExit {
     exit 1
 }
 
-function Test-Tool {
-    param([string]$Tool)
-    if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) {
-        Write-ErrAndExit "$Tool not found. Install it and re-run."
-    }
+# Returns $true when the agent's CLI is on PATH. Otherwise prints a skip notice and
+# returns $false so the caller can move on without aborting the run -- other selected
+# agents (and other wizard steps) still proceed. Use for optional, per-agent CLIs.
+function Test-AgentCli {
+    param([string]$Tool, [string]$Label)
+    if (Get-Command $Tool -ErrorAction SilentlyContinue) { return $true }
+    # Write-Host (not Write-Info/Write-Output): the caller consumes the return value in a
+    # boolean test, so success-stream output would be captured into it and flip the result.
+    Write-Host "  Skipping ${Label}: '$Tool' CLI not found on PATH. Install it and re-run."
+    return $false
 }
 
 # Ensures npx (Node.js) is on PATH. When missing, prints install guidance and
@@ -617,13 +622,13 @@ function Set-OpencodeMcpEntry {
 }
 
 function Install-JetbrainsForClaude {
-    Test-Tool -Tool 'claude'
+    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude Code')) { return }
     Write-Info 'Adding JetBrains MCP for Claude Code...'
     & claude mcp add --transport sse jetbrains --scope user http://localhost:64342/sse
 }
 
 function Install-JetbrainsForCodex {
-    Test-Tool -Tool 'codex'
+    if (-not (Test-AgentCli -Tool 'codex' -Label 'Codex')) { return }
     Write-Info 'Adding JetBrains MCP for Codex (Streamable HTTP; requires IntelliJ 2026.1+)...'
     Write-Info 'For older IntelliJ versions, follow the STDIO setup in the README manually.'
     & codex mcp add jetbrains --url http://localhost:64342/stream
@@ -667,14 +672,14 @@ function Invoke-CmdMcpJetbrains {
 
 function Install-Context7ForClaude {
     param([string]$Key)
-    Test-Tool -Tool 'claude'
+    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude Code')) { return }
     Write-Info 'Adding Context7 MCP for Claude Code...'
     & claude mcp add context7 --scope user -- npx -y '@upstash/context7-mcp' --api-key $Key
 }
 
 function Install-Context7ForCodex {
     param([string]$Key)
-    Test-Tool -Tool 'codex'
+    if (-not (Test-AgentCli -Tool 'codex' -Label 'Codex')) { return }
     Write-Info 'Adding Context7 MCP for Codex...'
     & codex mcp add context7 -- npx -y '@upstash/context7-mcp' --api-key $Key
 }
@@ -950,6 +955,11 @@ function Invoke-Wizard {
     if ($sel[0] -ne 'skip' -and -not (Test-SymlinkSupport)) {
         Write-Info 'Skipping Playwright: symbolic links are not available in this session.'
         $summaryStrings.playwright = 'skipped (no symlink support)'
+        $sel = @('skip')
+    }
+    if ($sel[0] -ne 'skip' -and -not (Get-Command npx -ErrorAction SilentlyContinue)) {
+        Write-Info 'Skipping Playwright: npx (Node.js) not found on PATH.'
+        $summaryStrings.playwright = 'skipped (no npx)'
         $sel = @('skip')
     }
     if ($sel[0] -ne 'skip') {
