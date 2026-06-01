@@ -51,7 +51,7 @@
     copied. Off by default.
 
 .EXAMPLE
-    iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
+    Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | Invoke-Expression
 
 .EXAMPLE
     & ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) skills -Agent claude
@@ -85,6 +85,7 @@ $script:SourceSkillsDir  = $null
 $script:SourceAgentsMd   = $null
 $script:ResolvedVersionDir = $null
 $script:Timestamp        = (Get-Date).ToString('yyyyMMdd-HHmmss')
+$script:SymlinkSupported = $null
 
 # =================================================================
 # Helpers
@@ -137,6 +138,47 @@ function Assert-Npx {
     Write-Info 'Install Node.js (includes npx), then re-run:'
     Write-Info '  Windows: winget install OpenJS.NodeJS   (or download from https://nodejs.org)'
     Write-ErrAndExit 'npx not available on PATH'
+}
+
+# Probes whether the current OS/session can create symbolic links. On Windows this
+# requires Developer Mode or an elevated (Administrator) session; elsewhere it is
+# normally allowed. Creates and removes a throwaway symlink in a temp dir. The
+# result is cached so the probe runs at most once per invocation.
+function Test-SymlinkSupport {
+    if ($null -ne $script:SymlinkSupported) { return $script:SymlinkSupported }
+    $probeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-symlink-probe-" + [guid]::NewGuid().ToString('N'))
+    $supported = $false
+    try {
+        New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+        $target = Join-Path $probeDir 'target'
+        New-Item -ItemType Directory -Path $target -Force | Out-Null
+        $link = Join-Path $probeDir 'link'
+        New-Item -ItemType SymbolicLink -Path $link -Target $target -ErrorAction Stop | Out-Null
+        $supported = $true
+    } catch {
+        $supported = $false
+    } finally {
+        if (Test-Path $probeDir) { Remove-Item $probeDir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    $script:SymlinkSupported = $supported
+    Write-Verbose "symlink support: $supported"
+    return $supported
+}
+
+# Prints remediation guidance for enabling symbolic-link creation.
+function Write-SymlinkGuidance {
+    Write-Info 'Installing skills requires symbolic-link support, which is not available in this session.'
+    Write-Info 'On Windows, enable one of the following and re-run:'
+    Write-Info '  - Developer Mode: Settings -> Privacy & security -> For developers -> Developer Mode (On), or'
+    Write-Info '  - run this terminal as Administrator.'
+}
+
+# Fail-fast guard for non-interactive paths: aborts before any download when
+# symbolic links cannot be created.
+function Assert-SymlinkSupport {
+    if (Test-SymlinkSupport) { return }
+    Write-SymlinkGuidance
+    Write-ErrAndExit 'symbolic links are not available (enable Windows Developer Mode or run as Administrator)'
 }
 
 function Read-Prompt {
@@ -464,6 +506,7 @@ function New-SkillSymlinks {
 function Invoke-CmdSkills {
     $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'skills'
     $resolvedScope = Resolve-Scope -Scope $Scope
+    Assert-SymlinkSupport
     Initialize-Tarball
 
     if ($resolvedScope -eq 'local') {
@@ -767,6 +810,7 @@ function Install-PlaywrightForAgents {
 
 function Invoke-CmdPlaywright {
     $agents = Resolve-AgentsCsv -Csv $Agents -Subcommand 'playwright'
+    Assert-SymlinkSupport
     Install-PlaywrightForAgents -Agents $agents
 }
 
@@ -780,26 +824,29 @@ function Read-AgentChoice {
         [string[]]$Options,
         [string]$Default = 'skip'
     )
-    Write-Info ''
-    Write-Info $Label
-    Write-Output '  a) For all agents'
+    # Menu text must go to the host (Write-Host), not the success stream. The caller
+    # captures this function's return value ($sel = Read-AgentChoice ...); Write-Output
+    # lines would be swallowed into $sel and never shown instead of printed.
+    Write-Host ''
+    Write-Host $Label
+    Write-Host '  a) For all agents'
     $i = 1
     foreach ($opt in $Options) {
-        Write-Output ("  {0}) {1}" -f $i, (Get-AgentLabel -Agent $opt))
+        Write-Host ("  {0}) {1}" -f $i, (Get-AgentLabel -Agent $opt))
         $i++
     }
-    Write-Output '  s) Skip'
+    Write-Host '  s) Skip'
 
     $answer = Read-Prompt -Message 'Choice' -Default $Default
     if ($answer -match '^(s|skip)$') { return @('skip') }
     if ($answer -match '^(a|all)$') { return $Options }
     if ($answer -notmatch '^\d+$') {
-        Write-Info "Unrecognized choice '$answer'. Skipping."
+        Write-Host "Unrecognized choice '$answer'. Skipping."
         return @('skip')
     }
     $num = [int]$answer
     if ($num -ge 1 -and $num -le $Options.Length) { return @($Options[$num - 1]) }
-    Write-Info "Unrecognized choice '$answer'. Skipping."
+    Write-Host "Unrecognized choice '$answer'. Skipping."
     return @('skip')
 }
 
@@ -807,6 +854,12 @@ function Invoke-Wizard {
     Write-Info '=== Jmix AI Agents Toolkit ==='
     if ($Version) { Write-Info "Jmix version: $Version" }
     Write-Info "Working directory: $((Get-Location).Path)"
+
+    if (-not (Test-SymlinkSupport)) {
+        Write-Info ''
+        Write-SymlinkGuidance
+        Write-Info 'The skills and Playwright steps will be skipped until this is enabled.'
+    }
 
     $summaryStrings = @{
         skills     = 'skipped'
@@ -817,7 +870,15 @@ function Invoke-Wizard {
     }
 
     # Step 1: skills
-    $sel = Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents -Default 'all'
+    # Each Read-AgentChoice result is wrapped in @() so a single-agent or 'skip' return
+    # stays an array; PowerShell unwraps one-element arrays, which would turn $sel into a
+    # bare string and make $sel[0] index its first character instead of the value.
+    $sel = @(Read-AgentChoice -Label '[1/5] Install Jmix skills?' -Options $script:AllAgents -Default 'all')
+    if ($sel[0] -ne 'skip' -and -not (Test-SymlinkSupport)) {
+        Write-Info 'Skipping skills: symbolic links are not available in this session.'
+        $summaryStrings.skills = 'skipped (no symlink support)'
+        $sel = @('skip')
+    }
     if ($sel[0] -ne 'skip') {
         $scopeAnswer = Read-Prompt -Message 'Install scope: (l)ocal project dir or (g)lobal user home' -Default 'l'
         $resolvedScope = if ($scopeAnswer -match '^(g|global)$') { 'global' } else { 'local' }
@@ -847,7 +908,7 @@ function Invoke-Wizard {
     }
 
     # Step 2: agents-md
-    $sel = Read-AgentChoice -Label '[2/5] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents -Default 'all'
+    $sel = @(Read-AgentChoice -Label '[2/5] Add Jmix coding guidelines to this directory?' -Options $script:AllAgents -Default 'all')
     if ($sel[0] -ne 'skip') {
         if (Read-YesNo -Message "Target directory: $((Get-Location).Path). Proceed?" -Default 'y') {
             Initialize-Tarball
@@ -861,7 +922,7 @@ function Invoke-Wizard {
     }
 
     # Step 3: JetBrains MCP
-    $sel = Read-AgentChoice -Label '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' -Options $script:JetbrainsAgents
+    $sel = @(Read-AgentChoice -Label '[3/5] Connect agent to IntelliJ IDEA via JetBrains MCP?' -Options $script:JetbrainsAgents)
     if ($sel[0] -ne 'skip') {
         foreach ($a in $sel) {
             try { Install-JetbrainsFor -Agent $a } catch { Write-Info "error: $($_.Exception.Message)" }
@@ -870,7 +931,7 @@ function Invoke-Wizard {
     }
 
     # Step 4: Context7 MCP
-    $sel = Read-AgentChoice -Label '[4/5] Connect agent to library docs via Context7 MCP?' -Options $script:Context7Agents
+    $sel = @(Read-AgentChoice -Label '[4/5] Connect agent to library docs via Context7 MCP?' -Options $script:Context7Agents)
     if ($sel[0] -ne 'skip') {
         $apiKey = Read-Prompt -Message 'Context7 API key' -Default ''
         if ($apiKey) {
@@ -885,7 +946,12 @@ function Invoke-Wizard {
     }
 
     # Step 5: Playwright
-    $sel = Read-AgentChoice -Label '[5/5] Install Playwright? (requires npx)' -Options $script:AllAgents
+    $sel = @(Read-AgentChoice -Label '[5/5] Install Playwright? (requires npx)' -Options $script:AllAgents)
+    if ($sel[0] -ne 'skip' -and -not (Test-SymlinkSupport)) {
+        Write-Info 'Skipping Playwright: symbolic links are not available in this session.'
+        $summaryStrings.playwright = 'skipped (no symlink support)'
+        $sel = @('skip')
+    }
     if ($sel[0] -ne 'skip') {
         try {
             Install-PlaywrightForAgents -Agents $sel

@@ -26,7 +26,19 @@ curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guideline
 **Windows (PowerShell 5+):**
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | iex
+Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | Invoke-Expression
+```
+
+If PowerShell blocks the script because of its execution policy, run it explicitly with the policy bypassed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1' | Invoke-Expression"
+```
+
+If `powershell.exe` itself is blocked by a corporate policy (`CreateProcess error=5, Access is denied`), use PowerShell 7 (`pwsh`):
+
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1' | Invoke-Expression"
 ```
 
 > In Jmix Studio plugin, the same wizard is available from the **Jmix AI Agents Toolkit** action.
