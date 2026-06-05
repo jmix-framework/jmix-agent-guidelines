@@ -7,6 +7,71 @@ description: Create a Jmix Flow UI detail view with XML descriptor, save-close a
 
 Use this skill when creating a create/edit view for one entity.
 
+## Two render-time killers that compile clean
+
+Both produce valid Java/XML — `compileJava` is green — and then throw
+when the view is opened. `compileJava` is BLIND to `*-view.xml`; only a
+Jmix-aware inspection catches them statically, and the mechanical checks
+do NOT cover these two. With no inspection, get them right BY
+CONSTRUCTION from the WRONG/RIGHT examples below:
+
+1. **An enum attribute is NEVER `entityComboBox`.** `entityComboBox`
+   is for ENTITY references; binding it to an enum (with or without a
+   made-up `enumClass` attribute) throws `IllegalStateException: Range
+   is enumeration` at render. There is no `enumClass` attribute on
+   `entityComboBox`. For a Jmix enum property use a plain `<comboBox>`
+   or `<select>` — Jmix auto-populates it from the enum:
+
+   ```xml
+   <!-- WRONG: <entityComboBox property="category" enumClass="...SomeEnum"/> -->
+   <comboBox id="categoryField" property="category"/>   <!-- enum: just bind the property -->
+   ```
+
+2. **`itemsQuery` MUST wrap its JPQL in a nested `<query>` element**, and that
+   query MUST reference `:searchString` (the combo passes it for type-ahead).
+   Raw CDATA directly under `<itemsQuery>` throws
+   `GuiDevelopmentException: Nested 'query' element is missing`; a query that
+   ignores `:searchString` throws `DevelopmentException: Parameter 'searchString'
+   is not used in the query` at dropdown fetch. See "Reference Fields" below for
+   the correct shape.
+
+## Read-only open mode vs read-only descriptor
+
+These are two DIFFERENT things. Do not conflate them.
+
+**Read-only OPEN MODE** is set by the LIST view's open action:
+`list_read` instead of `list_edit`. `list_read` is an open MODE
+(read-only at runtime), not a `readOnly` descriptor. Users opening an
+existing row see a non-editable form; new entities still open in
+writable mode through `list_create`.
+
+**Read-only DESCRIPTOR** would mean every form field is hard-coded
+`readOnly="true"` and the detail view has no save action — only
+`detail_close`. This makes the view ALWAYS read-only, even for new
+entities. It CANNOT create entities and CANNOT save edits.
+
+When a spec says "the list opens records in read mode" or "the
+detail view is opened with the `read` action" — that calls for
+read-only OPEN MODE on the LIST side. The detail XML must still be
+a normal writable descriptor with `detail_saveClose` and editable
+fields. Jmix flips fields to read-only at runtime based on the open
+mode.
+
+A detail view without a save action is broken for create flows.
+Always declare both:
+
+```xml
+<actions>
+    <action id="saveCloseAction" type="detail_saveClose"/>
+    <action id="closeAction" type="detail_close"/>
+</actions>
+```
+
+and use editable form components (`textField`, `comboBox`,
+`entityComboBox`, etc.) without hard-coded `readOnly="true"` unless
+a specific attribute is permanently read-only in domain terms (e.g.
+audit timestamps).
+
 ## Steps
 
 1. Create Java controller under `view/<entityname>/`.
@@ -17,9 +82,9 @@ Use this skill when creating a create/edit view for one entity.
 6. Add `@EditedEntityContainer("<entity>Dc")`.
 7. Create XML descriptor with instance container, loader, `dataLoadCoordinator`, typed form fields, `detail_saveClose`, and `detail_close`.
 8. Configure reference fields with a verified data source: lookup action, `itemsContainer`, or `itemsQuery`.
-9. Use `InitEntityEvent` for UI-only defaults. Required persistent defaults must also be set in a service or entity event path.
+9. Use `InitEntityEvent` for UI-only defaults ONLY. A required persistent default must be set at the ENTITY layer (field initializer / `@PrePersist` / `EntitySavingEvent`) — NOT in an `InitEntityEvent` alone, NOT in a service, NOT in `EntityChangedEvent` (it fires after persist and cannot satisfy `@NotNull`). Tests save via `DataManager` and bypass the view — see `jmix-create-entity` (required-field defaults).
 10. Add message keys for the title and field labels.
-11. Add `@ViewPolicy("Entity.detail")` for roles that can open the detail view.
+11. Grant access for roles that can open the detail view with `@ViewPolicy(viewIds = "Entity.detail")` — declared on a **method of a `@ResourceRole` interface** (the annotation is `@Target(METHOD)`), not on the view controller. The annotation has no `value()` member: `@ViewPolicy("...")` does not compile; use `viewIds = "..."` (or `viewClasses = ...`). See `jmix-create-resource-role`.
 12. Before finishing, compare every form field component against the Java property type.
 
 ## Controller Template
@@ -101,20 +166,42 @@ For `@ManyToOne` and other entity references, prefer the simplest project-consis
 
 - `entityPicker` with lookup and clear actions when users need a full lookup screen.
 - `entityComboBox` with an `itemsContainer` loaded by a collection loader when the candidate set should be preloaded.
-- `entityComboBox` with `itemsQuery` for lazy loading only when that pattern already compiles in the project and query parameters are handled explicitly.
+- `entityComboBox` with `itemsQuery` ONLY to reuse a pre-existing compiled query — do NOT author a new one (see the warning below).
 
-When using `itemsQuery`, use the JPA/Jmix entity name, not the database table name:
+**PREFER `itemsContainer`** — it is the standard pattern and has no
+`searchString` trap. Declare a `<collection>` for the candidate
+entities and point the combo at it:
 
 ```xml
-<entityComboBox id="productField" property="product">
-    <itemsQuery class="com.company.app.entity.Product"
-                fetchPlan="_instance_name">
-        <query><![CDATA[select e from Product e order by e.name]]></query>
-    </itemsQuery>
-</entityComboBox>
+<data>
+    <instance id="<entity>Dc" class="com.company.app.entity.<Entity>">
+        <fetchPlan extends="_base">
+            <property name="ref" fetchPlan="_instance_name"/>
+        </fetchPlan>
+        <loader id="<entity>Dl"/>
+    </instance>
+    <collection id="refsDc" class="com.company.app.entity.Ref">
+        <fetchPlan extends="_instance_name"/>
+        <loader id="refsDl"><query><![CDATA[select e from Ref e order by e.name]]></query></loader>
+    </collection>
+</data>
+...
+<entityComboBox id="refField" property="ref" itemsContainer="refsDc"/>
 ```
+`<dataLoadCoordinator auto="true"/>` loads `refsDc` at open.
 
-`itemsQuery` does not automatically bind `container_` or `component_` parameters. Use an `itemsContainer` with a loader when the reference list depends on another component or container.
+**Do NOT author a new `<itemsQuery>`** — copy the `itemsContainer`
+block above instead; it has no `searchString` trap. ONLY if you must
+REUSE a pre-existing compiled `<itemsQuery>` already in the project: its
+query MUST reference `:searchString`, because the combo passes a
+`searchString` parameter for type-ahead and a query that ignores it
+throws, at dropdown fetch, `DevelopmentException: Parameter searchString
+is not used in the query` — e.g.
+`select e from Ref e where e.name like :searchString order by e.name`,
+using the JPA/Jmix entity name, not the table name. `itemsQuery` also
+does not auto-bind `container_`/`component_` params — use an
+`itemsContainer` with a loader when the reference list depends on another
+component or container.
 
 Before finishing, verify that saved reference entities can appear in the component data provider. If a field is required, do not leave a reference component without a working item source or lookup action.
 

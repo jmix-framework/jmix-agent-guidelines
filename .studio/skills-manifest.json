@@ -6,8 +6,9 @@
   },
   "versions": {
     "v2": {
-      "sha256": "c62e27a9326c41eba122f504ade0e0b9a7b241dea9bb32c0a47e04f33f6f2f9c",
+      "sha256": "4d7c0937824ad9e756a53e507057dab86f470fa6e94896cd7b639d162492fb68",
       "skills": [
+        "idea-static-analysis",
         "jmix-add-dialog-detail-flow",
         "jmix-add-entity-event-listener",
         "jmix-add-i18n-keys",
@@ -22,7 +23,9 @@
         "jmix-create-list-view",
         "jmix-create-resource-role",
         "jmix-create-service",
-        "jmix-create-test"
+        "jmix-create-test",
+        "jmix-verify-bootrun",
+        "verify-api-symbol"
       ]
     }
   }

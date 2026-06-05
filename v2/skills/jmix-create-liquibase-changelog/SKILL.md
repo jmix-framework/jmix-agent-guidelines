@@ -53,6 +53,42 @@ Use this skill for every persistent entity or schema change.
 </changeSet>
 ```
 
+## Parent → child ordering (FK references must follow the parent table)
+
+When a child table has a foreign key to a parent, the parent `createTable`
+MUST come BEFORE the child's `createTable` / `addForeignKeyConstraint`. A
+changeSet that references a table not yet created fails at startup and takes
+down the whole context — including tests that only touch the data model.
+Order the parent first, the child (with its FK) second:
+
+```xml
+<!-- parent FIRST -->
+<changeSet id="create-parent" author="app">
+    <createTable tableName="PARENT">
+        <column name="ID" type="${uuid.type}">
+            <constraints nullable="false" primaryKey="true" primaryKeyName="PK_PARENT"/>
+        </column>
+        <column name="VERSION" type="int"><constraints nullable="false"/></column>
+        <column name="NAME" type="varchar(100)"><constraints nullable="false"/></column>
+    </createTable>
+</changeSet>
+
+<!-- child SECOND: its FK references the already-created parent -->
+<changeSet id="create-child" author="app">
+    <createTable tableName="CHILD">
+        <column name="ID" type="${uuid.type}">
+            <constraints nullable="false" primaryKey="true" primaryKeyName="PK_CHILD"/>
+        </column>
+        <column name="VERSION" type="int"><constraints nullable="false"/></column>
+        <column name="NAME" type="varchar(100)"><constraints nullable="false"/></column>
+        <column name="PARENT_ID" type="${uuid.type}"><constraints nullable="false"/></column>
+    </createTable>
+    <addForeignKeyConstraint baseTableName="CHILD" baseColumnNames="PARENT_ID"
+                             referencedTableName="PARENT" referencedColumnNames="ID"
+                             constraintName="FK_CHILD_ON_PARENT"/>
+</changeSet>
+```
+
 ## Root Changelog Reachability
 
 ```xml
@@ -75,3 +111,4 @@ If the project uses explicit includes instead of `includeAll`, follow that exist
 - Nullable database column for a required Java field.
 - Java precision/length different from Liquibase precision/length.
 - Missing FK for persistent references.
+- A child table / FK changeSet ordered BEFORE the parent table it references.

@@ -50,6 +50,8 @@ public class AccountService {
 }
 ```
 
+Consume the instance RETURNED by `dataManager.save(...)`: the pre-save argument is stale (no generated id/version), while `save(...)` returns the fresh managed copy. A missing transaction boundary and using the stale argument are both compile- and render-clean defects.
+
 ## DataManager Loading
 
 ```java

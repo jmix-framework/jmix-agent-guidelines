@@ -7,6 +7,22 @@ description: Add editable parent-child composition UI in a Jmix detail view.
 
 Use this skill when a parent entity owns child entities edited inside the parent detail view.
 
+## The child's OWN detail view must exist
+
+A child `dataGrid` with a `list_create`/`list_edit` action opens the
+child's detail view as a DIALOG. That view must EXIST as a real,
+separately created view — controller + XML with a stable id of the form
+`<Child>.detail`. Wiring the action without creating the view throws
+`NoSuchViewException: View '<Child>.detail' is not defined` the moment
+the user clicks "+", and any `@ViewPolicy(viewIds = "<Child>.detail")` you grant
+would point at a view id that does not resolve. Creating the child detail
+view (step 2) is not optional.
+
+Each button's `action="<grid-id>.<actionId>"` must name the dataGrid's
+own `id` and an `<action>` declared inside that grid — otherwise the
+button silently does nothing or the view fails to open. A clean compile
+never surfaces any of this.
+
 ## Steps
 
 1. Ensure the entity model is a real composition:
@@ -21,6 +37,10 @@ Use this skill when a parent entity owns child entities edited inside the parent
 7. Add `openMode=DIALOG` to create/edit actions.
 8. Add view policy for the child detail view.
 9. Add messages for child entity and view title.
+
+The child collection container is property-bound (`<collection
+property=...>`): no loader or query, and the parent fetchPlan must
+include the child property so the children load with the parent.
 
 ## XML Pattern
 

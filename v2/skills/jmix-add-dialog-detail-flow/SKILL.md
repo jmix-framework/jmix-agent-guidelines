@@ -61,7 +61,7 @@ public void onCreateLineButtonClick(final ClickEvent<JmixButton> event) {
 Prefer binding to the selected master container when possible:
 
 ```xml
-<loader id="transactionsDl" readOnly="true">
+<loader id="orderLinesDl" readOnly="true">
     <query><![CDATA[
         select e from OrderLine e
         where e.order = :container_ordersDc
@@ -70,16 +70,25 @@ Prefer binding to the selected master container when possible:
 </loader>
 ```
 
+A `:container_<DcId>` parameter is auto-bound and auto-safe — it may sit under `<dataLoadCoordinator auto="true"/>`. A MANUAL parameter (anything not `:container_*` / `:component_*`, e.g. `:param`) is NOT: if it runs with the param unset — left under `auto="true"`, or `load()` called before `setParameter` — it throws an `IllegalStateException` at view open about the missing query parameter. Such a loader MUST be kept OUT of the coordinator and loaded explicitly from the selection handler:
+
+```xml
+<facets>
+    <!-- coordinator lists only auto-safe loaders; the manual-param loader is NOT here -->
+    <dataLoadCoordinator auto="true"/>
+</facets>
+```
+
 If passing an entity manually, compare the entity-valued property to the entity parameter:
 
 ```xml
-where e.order = :order
+where e.order = :param
 ```
 
 If passing only an id manually, compare to the id field:
 
 ```xml
-where e.order.id = :orderId
+where e.order.id = :paramId
 ```
 
 When a loader query has a required manual parameter, never call `load()` after removing that parameter. Either bind to the selected master container, skip loading until a master is selected, or clear the child container when no master is selected.
@@ -129,6 +138,52 @@ Do not write:
 where e.order = :container_ordersDc.selected
 ```
 
+## Migrating from service call to entity create
+
+When a spec evolves a button from "collect a value, call a service" to "create an entity through its detail view", REMOVE the input dialog and call the detail dialog DIRECTLY. Do NOT chain an `InputDialog` before the detail dialog — a UI test that clicks the button expects a `StandardDetailView` immediately, and an `InputDialog` cast to `StandardDetailView` throws `ClassCastException`.
+
+WRONG (broken hybrid):
+
+```java
+@Subscribe("actionButton")
+public void onActionButtonClick(ClickEvent<JmixButton> event) {
+    Order order = grid.getSingleSelectedItem();
+    dialogs.createInputDialog(this)
+            .withParameters(InputParameter.intParameter("quantity"))
+            .withCloseListener(e -> {
+                if (e.closedWith(DialogOutcome.OK)) {
+                    Integer qty = e.getValue("quantity");
+                    // then opens the detail dialog — too late, the test
+                    // already saw the input dialog
+                    openDetailView(order, qty);
+                }
+            })
+            .open();
+}
+```
+
+RIGHT (direct detail-dialog open):
+
+```java
+@Subscribe("actionButton")
+public void onActionButtonClick(ClickEvent<JmixButton> event) {
+    Order order = grid.getSingleSelectedItem();
+    if (order == null) return;
+
+    dialogWindows.detail(this, OrderLine.class)
+            .newEntity()
+            .withInitializer(line -> line.setOrder(order))
+            .withAfterCloseListener(e -> {
+                if (e.closedWith(StandardOutcome.SAVE)) {
+                    ordersDl.load();   // reload the loader — NOT grid.getDataProvider().refreshAll()
+                }
+            })
+            .open();
+}
+```
+
+The detail view itself collects the scalar attributes; the entity is created on save; a side effect (e.g. an `EntityChangedEvent` listener) performs any derived update. The button just opens the detail dialog — nothing in between. When the spec says "open the X detail view from the button", that means LITERALLY: no `InputDialog`, no `MessageDialog`, no service call before the dialog opens.
+
 ## Scalar Input Dialog
 
 For a button that collects a simple scalar value and then calls a service, use the Jmix input dialog API instead of a raw Vaadin dialog.
@@ -167,14 +222,34 @@ public void onAdjustButtonClick(final ClickEvent<JmixButton> event) {
 
 Use message keys for dialog headers, labels, and notifications. Keep service calls in services; the view should only collect input, call the service, and reload loaders.
 
+## `IllegalArgumentException: argument type mismatch` on a button = WRONG HANDLER SIGNATURE
+
+If clicking a button throws `IllegalArgumentException: argument type mismatch` (the error fires AT THE CLICK, before any dialog opens), the bug is the `@Install(subject="clickListener")` / `@Subscribe` handler PARAM TYPE — NOT the `InputParameter` or the dialog. A `clickListener` delivers a `ClickEvent<JmixButton>`; a handler typed `Component` or `ActionPerformedEvent` cannot receive it, so reflection throws.
+
+```java
+// WRONG — throws "argument type mismatch" at click:
+@Install(to = "actionButton", subject = "clickListener")
+private void onClick(final ActionPerformedEvent event) { ... }   // or (Component event)
+
+// RIGHT:
+@Subscribe("actionButton")
+public void onClick(final ClickEvent<JmixButton> event) { ... }
+```
+
+Do NOT respond to this error by changing the `InputParameter` type (`intParameter`/`stringParameter`/`withType`/parse) — that is a different layer and leaves the click broken. Fix the handler param to `ClickEvent<JmixButton>` first. (`InputParameter.intParameter("q")` is the correct scalar form; do not switch to `stringParameter` + `Integer.parseInt`.)
+
 ## Forbidden
 
 - Raw Vaadin `Dialog` for entity create/edit flows.
 - Raw Vaadin `Dialog` for ordinary scalar input workflows.
 - Direct service update when the domain requires creating an entity record.
+- Chaining an `InputDialog`/`MessageDialog`/service call before opening the detail dialog when the spec says "open the detail view from the button".
 - Refreshing loaders after cancel/close when no save occurred.
 - Refreshing grids with `getDataProvider().refreshAll()` instead of loader reload.
 - Comparing entity-valued JPQL properties to UUID parameters.
 - Using `.selected` inside a `:container_*` JPQL parameter.
 - Calling `load()` on a loader after removing a JPQL parameter required by its query.
+- A manual-`:param` loader (anything not `:container_*`/`:component_*`) placed under `<dataLoadCoordinator auto="true"/>` — it fires unbound at view open and throws. Omit it from the coordinator; load it from the selection handler after `setParameter`.
 - No-argument installed selection listeners for `DataGrid` selection changes.
+- A button `clickListener`/`@Subscribe` handler typed `Component` or `ActionPerformedEvent` — must be `ClickEvent<JmixButton>` (else `argument type mismatch` at click). Fix the handler signature, not the dialog/InputParameter.
+- `stringParameter` + `Integer.parseInt` for a numeric input — use `InputParameter.intParameter(...)`.

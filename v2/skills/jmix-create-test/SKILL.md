@@ -20,6 +20,8 @@ Use this skill when adding or changing tests for Jmix application behavior.
 9. Mock external systems at the boundary; prefer `@MockitoBean` on Spring Boot 3.4+ projects and follow the project's existing compiled pattern otherwise.
 10. Run the smallest relevant Gradle test command.
 
+Before typing any Jmix/Vaadin symbol you didn't copy from this project's `src` — a class, enum constant, action id, component, or event inner-class — confirm it. A guessed symbol survives typing and then breaks `compileJava`. Use the Context7 MCP (`/jmix-framework/jmix-context7`) when available, otherwise the official docs plus a working example already in this repo.
+
 ## Unit Test Pattern
 
 ```java
@@ -63,6 +65,8 @@ class CustomerServiceTest {
 }
 ```
 
+Add the instance **returned** by `dataManager.save()` to the cleanup list — not the pre-save argument — so `remove` targets the persisted entity.
+
 ## Security Test Pattern
 
 ```java
@@ -93,7 +97,7 @@ class CustomerUiTest {
 }
 ```
 
-Use the project's helper for component lookup if it exists. Otherwise keep a local typed helper small and explicit.
+Use the project's helper for component lookup if it exists. Otherwise keep a local typed helper small and explicit. A `@UiTest` that navigates to a view will fail to find it if the view's id or the component id is wrong — the test, not just `compileJava`, is what catches that.
 
 ## End-To-End Tests
 
@@ -103,11 +107,11 @@ Use Masquerade/Selenide or the project's browser-test stack when browser verific
 
 Before finishing, check:
 
-- Every created persistent record is removed in `@AfterEach`.
-- Cleanup uses the same authentication level needed for deletion.
+- Every created persistent record is removed in `@AfterEach`, using the same authentication level needed for deletion.
 - Test data has unique values to avoid collisions.
 - Assertions verify persisted or visible behavior, not just absence of exceptions.
 - The test command can run one class or method without running the full suite.
+- Run the single class twice back-to-back — a second green run proves no leaked rows or cross-test data dependence that one pass hides.
 
 ## Forbidden
 

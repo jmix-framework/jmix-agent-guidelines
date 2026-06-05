@@ -56,6 +56,56 @@ public class Customer {
 }
 ```
 
+## Required-field defaults — at the ENTITY layer, not elsewhere
+
+When a required field "defaults to X" or is "auto-set on create/update"
+(e.g. "default now()", "auto-set", "defaults to 0"), the default MUST
+apply at the entity layer so a bare `DataManager.create()` +
+`DataManager.save()` succeeds with the caller never touching the field.
+This is the contract: programmatic paths (services, REST, tests) bypass
+the UI, so a default that lives only in the view is no default at all.
+
+Three patterns, in order of preference:
+
+**Constant default — field initializer**
+
+```java
+@Column(name = "QUANTITY", nullable = false)
+@NotNull
+private Integer quantity = 0;
+```
+
+**Runtime default for create — `@PrePersist`**
+
+```java
+@Column(name = "CREATED_AT", nullable = false)
+@NotNull
+private LocalDateTime createdAt;
+
+@PrePersist
+protected void onPrePersist() {
+    if (createdAt == null) {
+        createdAt = LocalDateTime.now();
+    }
+}
+```
+
+**Auto-set on update too — add `@PreUpdate`** (e.g. a `lastUpdated`
+field): annotate the touch method with both `@PrePersist` and
+`@PreUpdate`.
+
+A before-persist `EntitySavingEvent` listener is an acceptable
+alternative for cross-entity logic.
+
+### Anti-patterns that look right and break tests
+
+| Wrong placement                                    | Why it fails                                   |
+|----------------------------------------------------|------------------------------------------------|
+| Default set only in the detail view's `InitEntityEvent` | Non-UI saves bypass the view; `DataManager.save()` hits the `@NotNull` violation. |
+| Default set only in a service mutator that runs on UPDATE | The initial INSERT has no default; `@NotNull` fails. And a test calling `DataManager` directly never enters the service. |
+| Default set in an `EntityChangedEvent` listener    | The listener fires AFTER persist — too late for `@NotNull`. It reacts to saves; it does not default them. |
+| Default set only in the calling UI controller      | Programmatic paths (services, REST, tests) bypass it. |
+
 ## Composition Checklist
 
 For parent-child aggregates:
@@ -65,8 +115,8 @@ For parent-child aggregates:
 - Child has a non-null back reference to parent.
 - Child `@ManyToOne` uses `fetch = FetchType.LAZY` and `optional = false`.
 - Child join column is `nullable = false`.
-- Parent detail view supports editing the child collection.
-- Child detail view and role policy exist if the UI opens the child in a dialog.
+- Parent detail view edits the child collection via a property-bound `<collection property=...>` (no loader/query), and the parent fetchPlan includes the child property.
+- The child's own detail view exists, plus its role policy, when the UI opens the child in a dialog.
 
 ```java
 import io.jmix.core.DeletePolicy;
@@ -79,23 +129,19 @@ import jakarta.persistence.OneToMany;
 
 @Composition
 @OnDelete(DeletePolicy.CASCADE)
-@OneToMany(mappedBy = "order")
-private List<OrderLine> lines;
+@OneToMany(mappedBy = "parent")
+private List<ChildLine> lines;
 
-@JoinColumn(name = "ORDER_ID", nullable = false)
+@JoinColumn(name = "PARENT_ID", nullable = false)
 @ManyToOne(fetch = FetchType.LAZY, optional = false)
-private Order order;
+private Parent parent;
 ```
-
-## Default Values
-
-- If a required value can be created from UI and non-UI code, do not rely on the view alone.
-- Use a service method, entity saving event, or other application lifecycle path that covers non-UI saves.
-- Use `InitEntityEvent` only for UI-only defaults.
 
 ## Constraint Audit
 
-Check Java annotations and Liquibase side by side:
+`compileJava` does not build the schema — Liquibase does — so Java/DDL
+drift is silent. Check Java annotations and the Liquibase changelog side
+by side:
 
 - `nullable` / `@NotNull`
 - `length`
@@ -122,3 +168,4 @@ Apply common Java validation and persistence mappings when the field semantics a
 - Missing Liquibase changelog for persistent changes.
 - Nullable child back references in composition aggregates.
 - Relying only on UI initialization for required persistence fields.
+- A 0-byte `.java` — it passes compile and the clean test boot, but breaks the registry. Confirm every file you wrote is non-empty.

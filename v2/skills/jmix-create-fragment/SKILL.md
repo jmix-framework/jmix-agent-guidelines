@@ -121,6 +121,28 @@ The host view or enclosing fragment must declare a data component with the same 
 
 Use a fragment renderer only when a grid/list cell needs reusable UI more complex than a simple renderer. Keep renderer fragments read-only unless the workflow explicitly supports editing from the cell.
 
+## Verify — fragment wiring fails at view init, not compile
+
+A fragment whose XML root does not match the `Fragment<...>` generic type, a
+`provided="true"` container with no matching host id, or `<facets>` the project
+schema does not support all compile clean and then throw
+`GuiDevelopmentException` (or a load failure) when the host view opens.
+
+1. **API symbols — verify before you type them.** `Fragment`,
+   `@FragmentDescriptor`, the `Fragments.create(...)` overload you use, and the
+   facet names (`fragmentDataLoadCoordinator` vs `dataLoadCoordinator`,
+   `fragmentSettings` vs `settings`) must exist in this project. Confirm via
+   Context7 (`/jmix-framework/jmix-context7`), IDE symbol search, or an existing
+   fragment in `src/` — see `verify-api-symbol`.
+2. **Static inspection (Gate 1).** Run `idea-static-analysis`
+   (get_file_problems) on the fragment descriptor and the host view — the
+   Jmix-XSD-aware inspection flags an unsupported `<facets>` element, an unknown
+   component, or a `provided` container with no host counterpart that the
+   compiler ignores.
+3. **Open the host (Gate 2).** Compile the host and fragment together, then run
+   the test/view that embeds the fragment; root-type and provided-data
+   mismatches only surface when the host initializes.
+
 ## Forbidden
 
 - Fragment controller without matching XML descriptor.
