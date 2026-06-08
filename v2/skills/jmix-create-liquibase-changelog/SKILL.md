@@ -53,6 +53,24 @@ Use this skill for every persistent entity or schema change.
 </changeSet>
 ```
 
+## Audit and soft-delete columns
+
+If the entity carries audit (`@CreatedBy` / `@CreatedDate` / `@LastModifiedBy` /
+`@LastModifiedDate`) or soft-delete (`@DeletedBy` / `@DeletedDate`) annotations,
+add the matching columns INSIDE its `<createTable>`. They are set by Jmix at
+runtime, so keep them NULLABLE (no `nullable="false"`). Add only the columns
+whose annotations are actually on the entity — see `jmix-create-entity`
+(Auditing and Soft Delete).
+
+```xml
+<column name="CREATED_BY" type="varchar(255)"/>
+<column name="CREATED_DATE" type="timestamp"/>
+<column name="LAST_MODIFIED_BY" type="varchar(255)"/>
+<column name="LAST_MODIFIED_DATE" type="timestamp"/>
+<column name="DELETED_BY" type="varchar(255)"/>
+<column name="DELETED_DATE" type="timestamp"/>
+```
+
 ## Parent → child ordering (FK references must follow the parent table)
 
 When a child table has a foreign key to a parent, the parent `createTable`
@@ -88,6 +106,12 @@ Order the parent first, the child (with its FK) second:
                              constraintName="FK_CHILD_ON_PARENT"/>
 </changeSet>
 ```
+
+For a **composition** child, the delete cascade is enforced by Jmix at the
+application layer (`@Composition` + `@OnDelete(DeletePolicy.CASCADE)` on the
+entity), NOT by the database — Jmix uses soft delete by default, so a DB-level
+`onDelete="CASCADE"` would never fire. Leave the FK without `onDelete` unless
+you specifically need hard-delete DB-level enforcement.
 
 ## Root Changelog Reachability
 
