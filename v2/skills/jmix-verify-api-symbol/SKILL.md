@@ -1,5 +1,5 @@
 ---
-name: verify-api-symbol
+name: jmix-verify-api-symbol
 description: Before typing a class, enum constant, inner-class event, method, or icon name you have not personally verified in this project, confirm it exists. Costs seconds and prevents the most expensive class of failures (hallucinated icon constants, fake event inner classes, wrong package paths). Primary check when connected = the Context7 docs MCP (/jmix-framework/jmix-context7); falls back to grepping the project for a working example or an IDE symbol search.
 ---
 

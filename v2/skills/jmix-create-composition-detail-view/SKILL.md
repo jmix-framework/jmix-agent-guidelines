@@ -1,6 +1,6 @@
 ---
 name: jmix-create-composition-detail-view
-description: Add editable parent-child composition UI in a Jmix detail view.
+description: Add inline editable parent-child composition UI to a Jmix detail view, when a parent entity owns child records edited via a property-bound collection container (no query loader).
 ---
 
 # Create Composition Detail Editing

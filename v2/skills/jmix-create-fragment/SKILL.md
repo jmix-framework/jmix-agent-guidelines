@@ -1,6 +1,6 @@
 ---
 name: jmix-create-fragment
-description: Create or change reusable Jmix Flow UI fragments, embedded fragment instances, provided data components, fragment facets, host event subscriptions, or fragment renderers.
+description: Create or change reusable Jmix Flow UI fragments, embedded fragment instances, provided data components, host event subscriptions, or fragment renderers.
 ---
 
 # Create Fragment
@@ -130,8 +130,8 @@ schema does not support all compile clean and then throw
    `@FragmentDescriptor`, and the `Fragments.create(...)` overload you use must
    exist in this project. Confirm via Context7
    (`/jmix-framework/jmix-context7`), IDE symbol search, or an existing fragment
-   in `src/` — see `verify-api-symbol`.
-2. **Static inspection (Gate 1).** Run `ide-static-analysis`
+   in `src/` — see `jmix-verify-api-symbol`.
+2. **Static inspection (Gate 1).** Run `jmix-static-analysis`
    (get_file_problems) on the fragment descriptor and the host view — the
    Jmix-XSD-aware inspection flags an unsupported `<facets>` element, an unknown
    component, or a `provided` container with no host counterpart that the

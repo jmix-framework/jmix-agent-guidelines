@@ -130,7 +130,7 @@ constant — crashes the entire view at render time.
 - Reuse only icon names you have seen in this project. Grep existing
   view XML for `icon="` and copy what you find.
 - Before typing a new `VaadinIcon` constant, verify it exists (grep the
-  project, or use Context7 / IDE symbol lookup) — see `verify-api-symbol`.
+  project, or use Context7 / IDE symbol lookup) — see `jmix-verify-api-symbol`.
 
 ## URL Query Parameters — add alongside filter and pagination
 

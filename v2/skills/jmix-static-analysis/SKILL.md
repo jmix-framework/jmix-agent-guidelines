@@ -1,5 +1,5 @@
 ---
-name: ide-static-analysis
+name: jmix-static-analysis
 description: Gate-1 static checks. PRIMARY when connected: run a Jmix-aware IDE/semantic inspection (e.g. JetBrains get_file_problems) on every file you created/edited — it catches the *-view.xml defects a compiler cannot (unresolved msg://, invalid property paths, missing data containers). Fall back to compileJava plus mechanical descriptor checks when no inspection is available. Read before relying on any static check.
 ---
 
@@ -93,5 +93,5 @@ clean. Run it on EVERY file, not a sample — the defects that survive are the o
 you were confident about and never checked. After the last edit, a full
 `compileJava` is the precondition for Gate 2 (`clean test`).
 
-For verifying a symbol BEFORE you type an unfamiliar API, see `verify-api-symbol`
+For verifying a symbol BEFORE you type an unfamiliar API, see `jmix-verify-api-symbol`
 — the cheapest, earliest defense against hallucinated names.

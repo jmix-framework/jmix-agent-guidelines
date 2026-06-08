@@ -79,4 +79,4 @@ List<Customer> activeCustomers = dataManager.load(Customer.class)
 
 ## Verify
 
-Verify any unfamiliar Jmix/Vaadin symbol before typing it (`verify-api-symbol`), then run the gates after writing the service: static checks (`ide-static-analysis`) and the context-load test (`jmix-verify-bootrun`).
+Verify any unfamiliar Jmix/Vaadin symbol before typing it (`jmix-verify-api-symbol`), then run the gates after writing the service: static checks (`jmix-static-analysis`) and the context-load test (`jmix-verify-bootrun`).
