@@ -24,7 +24,7 @@ Before writing a single file:
    write it.
 3. Only then start writing.
 
-The verification skills (`jmix-static-analysis`, `jmix-verify-bootrun`) are
+The verification skills (`jmix-ide-static-analysis`, `jmix-verify-bootrun`) are
 gates, not how-to. They do not replace the artifact skill.
 
 ## Tooling — MCP first, universal floor always
@@ -34,7 +34,7 @@ This profile may ship MCP servers — a Jmix-aware IDE inspection (e.g. JetBrain
 for the browser. **When a server is connected, it is your PRIMARY check — reach
 for it first.** ANY server may be absent; when one is, do NOT skip the check —
 fall back to the universal floor: `compileJava`, `./gradlew clean test`, and
-the mechanical-floor commands in `jmix-static-analysis`.
+the mechanical-floor commands in `jmix-ide-static-analysis`.
 
 ## Gates before declaring a task done
 
@@ -44,7 +44,7 @@ is connected (primary); fall back to the universal check only when it is not.
 
 | Gate | Primary — MCP, if connected | Fallback — always available |
 |------|------|------|
-| 1 API & static | verify EVERY Jmix/Vaadin symbol via **Context7** (`/jmix-framework/jmix-context7`) before you type it, AND run the IDE inspection (**`get_file_problems`**) on every file you wrote — for `*-view.xml` it is the only static catch for unresolved `msg://`, invalid property paths, and missing data containers | `compileJava` + the mechanical-floor commands in `jmix-static-analysis` |
+| 1 API & static | verify EVERY Jmix/Vaadin symbol via **Context7** (`/jmix-framework/jmix-context7`) before you type it, AND run the IDE inspection (**`get_file_problems`**) on every file you wrote — for `*-view.xml` it is the only static catch for unresolved `msg://`, invalid property paths, and missing data containers | `compileJava` + the mechanical-floor commands in `jmix-ide-static-analysis` |
 | 2 Context loads | *(no MCP substitute — always run the fallback)* | `./gradlew --no-daemon clean test` — boots the Spring/Jmix context, runs Liquibase + project tests, then EXITS |
 | 3 Render | render-walk every view/button/field with the **browser tool** (Playwright) — confirm no error overlay, server exception, or raw `msg://` caption | no universal substitute — run the mechanical checks (the render-defect floor), then state `render not browser-verified` |
 
@@ -81,7 +81,7 @@ that call site.) High-frequency wrong→right traps are catalogued in
 READ the most specific skill for each artifact:
 
 - Verify a Jmix/Vaadin API: `jmix-verify-api-symbol`
-- Static checks / inspections / mechanical floor: `jmix-static-analysis`
+- Static checks / inspections / mechanical floor: `jmix-ide-static-analysis`
 - Gate-2 context-load test (+ optional Gate-3 render walk): `jmix-verify-bootrun`
 - Persistent entity: `jmix-create-entity`
 - Enum used by an entity: `jmix-create-enum`

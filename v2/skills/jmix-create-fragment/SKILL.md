@@ -16,8 +16,8 @@ Use this skill when UI code should be reusable inside one or more views or fragm
 5. Create the XML descriptor with the fragment namespace and a required `<content>` root.
 6. Make the XML root component match the controller generic type.
 7. Add `<data>` only for data the fragment owns, or mark host-owned containers/loaders with `provided="true"`.
-8. Add fragment facets only after verifying that the project's fragment XML schema supports `<facets>`.
-9. Give fragment instances an `id` when a facet requires stable state.
+8. Load the fragment's own `<data>` loaders from the controller (e.g. `getFragmentData().loadAll()` in a `ReadyEvent` handler) — fragments have no `<facets>`.
+9. Give an embedded fragment instance a stable `id` when it must persist state or be referenced.
 10. Pass parameters through public setters; use XML `<properties>` or call setters before adding the fragment.
 11. Add message keys for user-visible labels, captions, and action text.
 12. Compile the host view and fragment together.
@@ -131,7 +131,7 @@ schema does not support all compile clean and then throw
    exist in this project. Confirm via Context7
    (`/jmix-framework/jmix-context7`), IDE symbol search, or an existing fragment
    in `src/` — see `jmix-verify-api-symbol`.
-2. **Static inspection (Gate 1).** Run `jmix-static-analysis`
+2. **Static inspection (Gate 1).** Run `jmix-ide-static-analysis`
    (get_file_problems) on the fragment descriptor and the host view — the
    Jmix-XSD-aware inspection flags an unsupported `<facets>` element, an unknown
    component, or a `provided` container with no host counterpart that the
