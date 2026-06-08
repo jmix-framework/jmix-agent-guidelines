@@ -16,7 +16,7 @@ Use this skill when an entity attribute has a fixed set of values.
 5. Store the enum id type in the entity field.
 6. Add getter/setter conversion in the entity.
 7. Add Liquibase column matching the id type.
-8. Add enum message keys in all locale files.
+8. Add enum message keys in all locale files — see `jmix-add-i18n-keys` for the `<package>/<EnumClass>.<CONSTANT>` key shape (e.g. `com.company.app.entity/TransactionType.INCOME`), NOT an all-dots `FQCN.CONSTANT` form.
 
 ## Enum Template
 

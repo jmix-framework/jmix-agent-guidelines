@@ -6,9 +6,9 @@
   },
   "versions": {
     "v2": {
-      "sha256": "4d7c0937824ad9e756a53e507057dab86f470fa6e94896cd7b639d162492fb68",
+      "sha256": "c141a374a910adaba1db2bc814689b666abff6d5af0f36af90dd9d158af021c6",
       "skills": [
-        "idea-static-analysis",
+        "ide-static-analysis",
         "jmix-add-dialog-detail-flow",
         "jmix-add-entity-event-listener",
         "jmix-add-i18n-keys",

@@ -15,7 +15,7 @@ Use this skill when creating a top-level list/search view for an entity.
 4. Add `@ViewController(id = "Entity.list")`.
 5. Add `@ViewDescriptor(path = "entity-list-view.xml")`.
 6. Add `@LookupComponent("<entities>DataGrid")`.
-7. Create XML descriptor with collection container, loader, `dataLoadCoordinator`, grid actions, toolbar buttons, and columns. Do NOT add `<urlQueryParameters>` unless you also add the matching components (see below) — omitting it entirely is the safe default.
+7. Create XML descriptor with collection container, loader, `dataLoadCoordinator`, grid actions, toolbar buttons, and columns. Add `<urlQueryParameters>` when the view includes filter or pagination — always paired with the matching components (see below).
 8. Verify every JPQL query uses the JPA/Jmix entity name, not the database table name.
 9. Render a visible button for every grid action that users must trigger.
 10. For every `<urlQueryParameters>` child, confirm a component with the matching `id` exists in the same descriptor — otherwise the view crashes at init with `Component with id '<x>' not found`.
@@ -83,12 +83,12 @@ The grid action that opens a row is one of:
   descriptor attribute.
 - `list_remove` — deletes the selected entity.
 
-`list_read` REPLACES `list_edit`, not the whole CRUD bar. When a spec
-says "the list opens records in read mode" or "use `read` instead of
-`edit`", still keep `list_create` and `list_remove` unless the spec
-explicitly forbids creation or deletion. A list with only a read action
-and no create/remove is almost always wrong unless a fully read-only
-list was specifically requested.
+`list_read` REPLACES `list_edit`, not the whole CRUD bar. "The list
+opens records in read mode" or "use `read` instead of `edit`" still
+leaves `list_create` and `list_remove` in place — drop them only when
+creation or deletion is explicitly forbidden. A list with only a read
+action and no create/remove is almost always wrong unless a fully
+read-only list was specifically requested.
 
 ## Custom (non-standard) buttons MUST carry their own caption
 
@@ -132,40 +132,39 @@ constant — crashes the entire view at render time.
 - Before typing a new `VaadinIcon` constant, verify it exists (grep the
   project, or use Context7 / IDE symbol lookup) — see `verify-api-symbol`.
 
-## URL Query Parameters — the #1 copy-paste crash
+## URL Query Parameters — add alongside filter and pagination
 
-**Default: do NOT add `<urlQueryParameters>` at all.** It is optional
-decoration; a list view works fine without it. The skeleton above has
-none on purpose — start from that.
-
-Every `<urlQueryParameters>` child binds to a layout component BY ID,
-and if that component is missing the view CRASHES AT INIT with
-`Component with id '<x>' not found` — taking down every test that opens
-the view. This is the single most expensive list-view defect.
-
-The seed-scaffolded `user-list-view.xml` ships the binding and the
-component TOGETHER:
+When a list view has filter, pagination, or other stateful components
+whose state should survive page reload and be shareable via URL, add
+`<urlQueryParameters>` bindings. This is the recommended pattern for
+any non-trivial list view; the seed-scaffolded `user-list-view.xml`
+ships it by default.
 
 ```xml
 <facets>
     <urlQueryParameters>
-        <genericFilter component="genericFilter"/>   <!-- binding -->
-        <pagination component="pagination"/>          <!-- binding -->
+        <genericFilter component="genericFilter"/>
+        <pagination component="pagination"/>
     </urlQueryParameters>
 </facets>
 ...
-<genericFilter id="genericFilter" dataLoader="customersDl">...</genericFilter>  <!-- component -->
-<simplePagination id="pagination" dataLoader="customersDl"/>                    <!-- component -->
+<genericFilter id="genericFilter" dataLoader="customersDl">...</genericFilter>
+<simplePagination id="pagination" dataLoader="customersDl"/>
 ```
 
-If you model a new view on the seed, copy BOTH halves or NEITHER.
-Copying only the `<urlQueryParameters>` block (and dropping the
-`simplePagination` / `genericFilter` components) is exactly what
-crashes the view. The safe default is NEITHER.
+**Both halves are mandatory.** Every `<urlQueryParameters>` child binds
+to a layout component BY ID; if that component is missing, the view
+CRASHES AT INIT with `Component with id '<x>' not found` — taking down
+every test that opens the view. When copying from another view (e.g.
+`user-list-view.xml`), copy BOTH the binding AND the component, or
+NEITHER.
+
+Omit `<urlQueryParameters>` entirely when the view has no filter or
+pagination (e.g. a small static reference table).
 
 Self-check: for EVERY `<urlQueryParameters>` child, grep the SAME file
-for a component whose `id` equals the `component="..."` value. If it is
-absent, either add the matching component to the layout
+for a component whose `id` equals the `component="..."` value. If it
+is absent, either add the matching component to the layout
 (`<simplePagination id="pagination" dataLoader="...Dl"/>` or
 `<genericFilter id="genericFilter" dataLoader="...Dl">`) or delete that
 entry.
@@ -187,6 +186,13 @@ public class Product {
 
 Do not write `select e from PRODUCT_ e` or `select e from Product_ e` unless the entity itself is named that way in JPA metadata.
 
+## Standard load through `<loader><query>` — no delegate needed
+
+A `StandardListView` loads through the `<loader><query>` you declare in the
+XML. You do NOT need an `@Install(target = Target.DATA_LOADER)` load delegate;
+if you DO write one, it must return `List<E>` — returning the `LoadContext`
+itself means the query never runs and the grid is empty at open.
+
 ## Forbidden
 
 - Declaring actions without visible buttons or another reachable UI trigger.
@@ -198,3 +204,4 @@ Do not write `select e from PRODUCT_ e` or `select e from Product_ e` unless the
 - Invented or unverified icon names.
 - Missing role view policy.
 - Adding menu policy for dialog-only detail views.
+- A load delegate returning `LoadContext` instead of `List<E>` (the query never runs; the grid is empty at open).

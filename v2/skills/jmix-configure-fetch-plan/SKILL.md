@@ -54,6 +54,28 @@ Order order = dataManager.load(event.getEntityId())
         .one();
 ```
 
+## Fetch Modes
+
+Set per-property fetch mode to control how references are loaded:
+
+- `AUTO` — framework picks the optimal mode (default).
+- `JOIN` — loads the reference in the same SQL query; best for to-one references.
+- `BATCH` — loads references in a separate `IN`-clause query; best for to-many collections (avoids N+1).
+- `UNDEFINED` — separate SELECT per reference attribute.
+
+Set it with the `fetch` attribute on a fetch-plan property (the XML attribute is `fetch`, NOT `fetchMode`):
+
+```xml
+<fetchPlan extends="_base">
+    <property name="customer" fetch="JOIN"/>  <!-- to-one -->
+    <property name="lines" fetch="BATCH"/>     <!-- to-many collection -->
+</fetchPlan>
+```
+
+## JmixDataRepository
+
+Select the plan in one of two ways: pass a `FetchPlan` as the **last** method argument, or annotate the method with `@FetchPlan("name")` (`io.jmix.core.repository.FetchPlan`). A plain `String` parameter is bound as an ordinary query parameter, NOT a plan selector. Build complex plans with the `FetchPlans` bean: `fetchPlans.builder(Order.class).addFetchPlan(FetchPlan.BASE).add("customer", FetchPlan.INSTANCE_NAME).build()`.
+
 ## Partial Entity Audit
 
 Use a partial fetch plan only when it is intentionally narrower than `_base`:
@@ -84,7 +106,7 @@ never the compiler.
    (`_base`, `_instance_name`) must be spelled exactly. Confirm against the
    entity source, Context7 (`/jmix-framework/jmix-context7`), or IDE symbol
    search — see `verify-api-symbol`.
-2. **Static inspection (Gate 1).** Run `idea-static-analysis`
+2. **Static inspection (Gate 1).** Run `ide-static-analysis`
    (get_file_problems) on the view/fragment XML — the Jmix-XSD-aware
    inspection flags an invalid property path inside a `<fetchPlan>` that the
    compiler ignores.

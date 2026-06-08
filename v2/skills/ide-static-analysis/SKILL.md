@@ -1,5 +1,5 @@
 ---
-name: idea-static-analysis
+name: ide-static-analysis
 description: Gate-1 static checks. PRIMARY when connected: run a Jmix-aware IDE/semantic inspection (e.g. JetBrains get_file_problems) on every file you created/edited — it catches the *-view.xml defects a compiler cannot (unresolved msg://, invalid property paths, missing data containers). Fall back to compileJava plus mechanical descriptor checks when no inspection is available. Read before relying on any static check.
 ---
 
@@ -53,10 +53,37 @@ compiles clean — confirm written files are non-empty.
 
 ## 3. Mechanical descriptor checks — floor when no inspection
 
-If you have no semantic inspection, the mechanical descriptor checks in AGENTS.md
-are your static floor for the render-time defect classes. They are MANDATORY
-whenever you have neither an inspection nor a Gate-3 render walk — they are then
-your ONLY catch for those defects.
+When you have no semantic inspection, these are your static floor for the
+render-time defect classes. Run them from the project directory; each maps to a
+defect that passes a clean compile (and even a green `clean test`).
+
+Two kinds below: the `find` checks are pass/fail (any output = a defect to fix);
+the `grep` checks only SURFACE candidates — a non-empty result is not
+automatically a failure, but you MUST explain every hit (e.g. each `msg://` key
+must actually resolve in a `messages_*.properties`; each `= :` loader param must
+be bound/guarded).
+
+```bash
+# package line on every new .java (missing → view-registry / import breakage)
+find src/main/java -name '*.java' | while read f; do head -1 "$f" | grep -q '^package ' || echo "MISSING package: $f"; done
+# every @NotNull / nullable=false needs an entity-layer default, not InitEntityEvent
+grep -rn "nullable = false\|@NotNull" src/main/java --include='*.java'
+# manual :param loaders must be bound (:container_* / :component_*) or guarded
+grep -rn "= :" src/main/resources --include='*-view.xml'
+# CREATE ⇒ MODIFY in every role; @MenuPolicy lists leaf item ids
+grep -rn "CREATE\|MODIFY\|VIEW" src/main/java --include='*Role.java'
+# itemsQuery must reference :searchString (or switch to itemsContainer)
+grep -rn "itemsQuery" src/main/resources --include='*-view.xml'
+# no raw Vaadin Dialog in a Jmix view
+grep -rn "com.vaadin.flow.component.dialog.Dialog" src/main/java --include='*.java'
+# every msg:// key must resolve in a messages_*.properties (else literal key renders)
+grep -rhoE 'msg://[^"<> ]+' src/main/resources --include='*.xml' | sort -u
+# no 0-byte source file (empty role drops policies; empty *-view.xml poisons registry)
+find src/main -type f \( -name '*.java' -o -name '*.xml' \) -size 0
+```
+
+These are MANDATORY whenever you have neither an inspection nor a Gate-3 render
+walk — they are then your ONLY catch for those defects.
 
 ## Per-file loop
 

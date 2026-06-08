@@ -105,6 +105,7 @@ If the project uses explicit includes instead of `includeAll`, follow that exist
 
 - New changelog file that is not reachable from the root changelog.
 - Reusing a changeset id in the same changelog file.
+- Modifying a changeset already applied to a DB: it changes the checksum and Liquibase hard-fails at startup. Add a NEW changeset instead.
 - Raw `UUID` type instead of `${uuid.type}`.
 - Invented type macros such as `${datetime.type}` when the project does not define them.
 - Missing `VERSION`.

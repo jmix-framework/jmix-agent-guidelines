@@ -7,6 +7,11 @@ description: Create or update Jmix resource roles with entity, attribute, view, 
 
 Use this skill when adding or changing Jmix security access.
 
+The model is ADDITIVE / no-deny: if any assigned role grants access the user has
+it, and there is no deny-policy. A role interface may `extend` several role
+interfaces of the SAME kind to compose their policies (a role cannot mix
+`@ResourceRole` and `@RowLevelRole`).
+
 ## TOP RULE — CREATE implies MODIFY
 
 If a role grants `EntityPolicyAction.CREATE` on an entity, that entity's
@@ -34,12 +39,12 @@ read-only even at creation (e.g. auto-generated audit fields), exclude them from
 `attributes` list or use a second `VIEW` policy for that subset — NOT a blanket
 `VIEW` on `*`.
 
-## Spec phrase → policy actions
+## Requirement wording → policy actions
 
-Map the EXACT wording of the spec to entity-policy actions. Re-read the spec
-sentence for the entity BEFORE writing the policy block.
+Map the EXACT wording of the requirement to entity-policy actions. Re-read the
+requirement for the entity BEFORE writing the policy block.
 
-| Spec wording (about an entity)                  | EntityPolicyAction         |
+| Requirement wording (about an entity)           | EntityPolicyAction         |
 |-------------------------------------------------|----------------------------|
 | "view only", "read only"                        | `READ`                     |
 | "view and create", "create only"                | `READ`, `CREATE`           |
@@ -50,7 +55,7 @@ sentence for the entity BEFORE writing the policy block.
 | "cannot be deleted"                             | do NOT include `DELETE`    |
 | "cannot be updated or deleted"                  | `READ`, `CREATE` only — even for managers |
 
-When the spec says an entity "cannot be updated or deleted", the role must NOT
+For an entity described as "cannot be updated or deleted", the role must NOT
 grant `UPDATE` or `DELETE` — not even for the manager role.
 `EntityPolicyAction.ALL` includes both and contradicts the "cannot be updated or deleted" requirement. Note
 `list_read` is an open MODE (read-only access), not a `readOnly` descriptor.
@@ -77,6 +82,34 @@ A `@ViewPolicy` that lists parent list+detail but omits the child detail will pa
 compilation and fail at runtime when the user clicks "+" inside the parent's
 composition table.
 
+## Row-Level roles
+
+Row-level roles are a separate first-class concept from resource roles: a resource
+role grants *what* you can do, a row-level role restricts *which rows* you see. They
+live in their own interface annotated with `@RowLevelRole` and never mix with
+`@ResourceRole`.
+
+- `@JpqlRowLevelPolicy(entityClass = ..., where = "...")` filters at the database
+  level. Use `{E}` as the entity alias and `:current_user_*` params (e.g.
+  `:current_user_username`).
+- `@PredicateRowLevelPolicy(entityClass = ..., actions = {...})` filters in-memory;
+  the method returns a `RowLevelPredicate` / `RowLevelBiPredicate`. Use for logic
+  that JPQL cannot express and for non-read operations.
+
+Gotcha: a JPQL policy only affects the root entity of a loaded graph. If the same
+entity is also loaded as a *collection* inside another entity's graph, define BOTH
+a `@JpqlRowLevelPolicy` and a `@PredicateRowLevelPolicy` for it to keep access
+consistent.
+
+```java
+@RowLevelRole(name = "Own Orders Only", code = "app_OwnOrdersOnly")
+public interface OwnOrdersOnlyRole {
+    @JpqlRowLevelPolicy(entityClass = Order.class,
+            where = "{E}.createdBy = :current_user_username")
+    void orderPolicy();
+}
+```
+
 ## Mechanical self-check before finishing
 
 A clean compile is NOT "done" — most role defects survive `compileJava` and surface
@@ -92,6 +125,10 @@ your own code:
    `<menu id="...">` GROUP id does NOT grant its items.
 3. **Every reachable view has a `@ViewPolicy` entry.** Include composition-dialog
    detail views opened from a parent grid even though they have no menu item.
+
+To assert a permission in Java at runtime, inject `AccessManager` and call
+`applyRegisteredConstraints(...)` on a context (e.g. `EntityOperationContext`), then
+check `isPermitted()`.
 
 ## Steps
 

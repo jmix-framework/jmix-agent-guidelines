@@ -102,8 +102,8 @@ Copy or symlink the content of the `skills/` subdirectory to the folder recogniz
 | Agent       | Project Skills Folder Path | Global Skills Folder Path    |
 |:------------|:---------------------------|:-----------------------------|
 | Claude Code | `.claude/skills/`          | `~/.claude/skills/`          |
-| Codex       | `.codex/skills/`           | `~/.codex/skills/`           |
-| OpenCode    | `.opencode/skills`         | `~/.config/opencode/skills/` |
+| Codex       | `.agents/skills/`          | `~/.agents/skills/`          |
+| OpenCode    | `.agents/skills/`          | `~/.agents/skills/`          |
 | Junie       | `.junie/skills`            | `~/.junie/skills/`           |
 
 #### Example

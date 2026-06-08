@@ -50,12 +50,11 @@ writable mode through `list_create`.
 `detail_close`. This makes the view ALWAYS read-only, even for new
 entities. It CANNOT create entities and CANNOT save edits.
 
-When a spec says "the list opens records in read mode" or "the
-detail view is opened with the `read` action" — that calls for
-read-only OPEN MODE on the LIST side. The detail XML must still be
-a normal writable descriptor with `detail_saveClose` and editable
-fields. Jmix flips fields to read-only at runtime based on the open
-mode.
+"The list opens records in read mode" or "the detail view is opened
+with the `read` action" — both phrasings call for read-only OPEN MODE
+on the LIST side. The detail XML must still be a normal writable
+descriptor with `detail_saveClose` and editable fields. Jmix flips
+fields to read-only at runtime based on the open mode.
 
 A detail view without a save action is broken for create flows.
 Always declare both:
@@ -82,7 +81,7 @@ audit timestamps).
 6. Add `@EditedEntityContainer("<entity>Dc")`.
 7. Create XML descriptor with instance container, loader, `dataLoadCoordinator`, typed form fields, `detail_saveClose`, and `detail_close`.
 8. Configure reference fields with a verified data source: lookup action, `itemsContainer`, or `itemsQuery`.
-9. Use `InitEntityEvent` for UI-only defaults ONLY. A required persistent default must be set at the ENTITY layer (field initializer / `@PrePersist` / `EntitySavingEvent`) — NOT in an `InitEntityEvent` alone, NOT in a service, NOT in `EntityChangedEvent` (it fires after persist and cannot satisfy `@NotNull`). Tests save via `DataManager` and bypass the view — see `jmix-create-entity` (required-field defaults).
+9. Use `InitEntityEvent` for UI-only defaults ONLY. A required persistent default must be set at the ENTITY layer (field initializer / `@PostConstruct` / `EntitySavingEvent`) — NOT in an `InitEntityEvent` alone, NOT in a service, NOT in `EntityChangedEvent` (it fires after persist and cannot satisfy `@NotNull`). Tests save via `DataManager` and bypass the view — see `jmix-create-entity` (required-field defaults).
 10. Add message keys for the title and field labels.
 11. Grant access for roles that can open the detail view with `@ViewPolicy(viewIds = "Entity.detail")` — declared on a **method of a `@ResourceRole` interface** (the annotation is `@Target(METHOD)`), not on the view controller. The annotation has no `value()` member: `@ViewPolicy("...")` does not compile; use `viewIds = "..."` (or `viewClasses = ...`). See `jmix-create-resource-role`.
 12. Before finishing, compare every form field component against the Java property type.
@@ -162,15 +161,43 @@ If an existing project uses a different compiled pattern for a type, follow the 
 
 ## Reference Fields
 
-For `@ManyToOne` and other entity references, prefer the simplest project-consistent pattern:
+For `@ManyToOne` and other entity references, pick the pattern by candidate-set characteristics:
 
-- `entityPicker` with lookup and clear actions when users need a full lookup screen.
-- `entityComboBox` with an `itemsContainer` loaded by a collection loader when the candidate set should be preloaded.
-- `entityComboBox` with `itemsQuery` ONLY to reuse a pre-existing compiled query — do NOT author a new one (see the warning below).
+- **`entityComboBox` with `itemsQuery` — PREFERRED.** Lazy-loading: the JPQL runs against the database on every type-ahead, fetching only matching candidates. Use this for any non-trivial candidate set.
+- **`entityComboBox` with `itemsContainer`** — for small, fixed sets that fit comfortably in memory and rarely change. Preloaded once at view open.
+- **`entityPicker`** with lookup and clear actions — when users need a full lookup screen. Use the literal standard action ids `entity_lookup` and `entity_clear` (do not invent ids).
 
-**PREFER `itemsContainer`** — it is the standard pattern and has no
-`searchString` trap. Declare a `<collection>` for the candidate
-entities and point the combo at it:
+### `itemsQuery` — the correct shape
+
+The combo passes a `searchString` parameter for type-ahead, so the
+JPQL MUST `like :searchString`; ignoring it throws `DevelopmentException:
+Parameter 'searchString' is not used in the query` at dropdown fetch.
+The JPQL must use the JPA/Jmix entity name, not the database table
+name.
+
+```xml
+<entityComboBox id="refField" property="ref">
+    <itemsQuery class="com.company.app.entity.Ref">
+        <query>
+            <![CDATA[
+            select e from Ref e
+            where e.name like :searchString
+            order by e.name
+            ]]>
+        </query>
+    </itemsQuery>
+</entityComboBox>
+```
+
+`itemsQuery` does NOT auto-bind `:container_*` / `:component_*`
+parameters — when the reference list depends on another component or
+container, use `itemsContainer` with a regular loader instead (see
+below).
+
+### `itemsContainer` — when the set is small or container-dependent
+
+Declare a `<collection>` for the candidate entities and point the combo
+at it:
 
 ```xml
 <data>
@@ -182,28 +209,25 @@ entities and point the combo at it:
     </instance>
     <collection id="refsDc" class="com.company.app.entity.Ref">
         <fetchPlan extends="_instance_name"/>
-        <loader id="refsDl"><query><![CDATA[select e from Ref e order by e.name]]></query></loader>
+        <loader id="refsDl">
+            <query><![CDATA[select e from Ref e order by e.name]]></query>
+        </loader>
     </collection>
 </data>
 ...
 <entityComboBox id="refField" property="ref" itemsContainer="refsDc"/>
 ```
-`<dataLoadCoordinator auto="true"/>` loads `refsDc` at open.
 
-**Do NOT author a new `<itemsQuery>`** — copy the `itemsContainer`
-block above instead; it has no `searchString` trap. ONLY if you must
-REUSE a pre-existing compiled `<itemsQuery>` already in the project: its
-query MUST reference `:searchString`, because the combo passes a
-`searchString` parameter for type-ahead and a query that ignores it
-throws, at dropdown fetch, `DevelopmentException: Parameter searchString
-is not used in the query` — e.g.
-`select e from Ref e where e.name like :searchString order by e.name`,
-using the JPA/Jmix entity name, not the table name. `itemsQuery` also
-does not auto-bind `container_`/`component_` params — use an
-`itemsContainer` with a loader when the reference list depends on another
-component or container.
+`<dataLoadCoordinator auto="true"/>` loads `refsDc` at open. Use this
+when the candidate set is small enough to fit in memory, or when the
+loader takes a `:container_*` / `:component_*` parameter that
+`itemsQuery` cannot bind.
 
 Before finishing, verify that saved reference entities can appear in the component data provider. If a field is required, do not leave a reference component without a working item source or lookup action.
+
+## Cross-field validation
+
+For cross-field/manual validation, add a `@Subscribe` handler on `ValidationEvent` and report failures via `event.getErrors().add("...")`; for programmatic checks (e.g. before a custom save) use the `ViewValidation` bean (`validateUiComponents`, `showValidationErrors`).
 
 ## Forbidden
 

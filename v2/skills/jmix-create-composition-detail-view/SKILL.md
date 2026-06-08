@@ -76,6 +76,8 @@ include the child property so the children load with the parent.
 </dataGrid>
 ```
 
+The `<instance>`/`<collection>` containers go inside `<data>`; the `<hbox>` and `<dataGrid>` inside `<layout>` of the detail descriptor.
+
 ## Forbidden
 
 - Child collection actions without a child detail view.

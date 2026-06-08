@@ -64,6 +64,11 @@ List<Customer> activeCustomers = dataManager.load(Customer.class)
         .list();
 ```
 
+## Gotchas
+
+- New vs detached: a null id does not mean "new" (ids can be generated early). Use `io.jmix.core.EntityStates#isNew(entity)`.
+- `DataManager` does more than `load`/`save`: `loadValues()` for scalar/aggregate data, the Condition API (`PropertyCondition` / `LogicalCondition`) as a JPQL alternative, pessimistic `lockMode()`, and hard delete by setting the `PersistenceHints.SOFT_DELETION` hint to `false` (e.g. `saveContext.setHint(PersistenceHints.SOFT_DELETION, false)`).
+
 ## Forbidden
 
 - Business logic in view controllers.

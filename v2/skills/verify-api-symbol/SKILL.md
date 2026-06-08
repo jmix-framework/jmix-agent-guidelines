@@ -65,7 +65,7 @@ Symbols commonly invented. NEVER type these — verify first:
 |------------------------------------------------------|--------------------------------------------------------------|
 | an invented `VaadinIcon` constant                    | does not exist; the icon enum is small and irregular — pick from existing constants or omit |
 | `JmixButton.ClickEvent`                              | use `com.vaadin.flow.component.ClickEvent<JmixButton>`       |
-| `DataGrid.ReadEvent`, `DataGrid.SelectionEvent`      | use `com.vaadin.flow.data.selection.SelectionEvent`          |
+| `DataGrid.ReadEvent`, `DataGrid.SelectionEvent`      | use `com.vaadin.flow.data.selection.SelectionEvent<DataGrid<E>, E>` |
 | `Target.DATA_GRID`                                   | not a Jmix `@Subscribe` target — use `Target.COMPONENT` with explicit id |
 | `io.jmix.flowui.dialogs.Dialogs`                     | actual: `io.jmix.flowui.Dialogs`                             |
 | `io.jmix.core.entity.EntityStates`                   | actual: `io.jmix.core.EntityStates`                          |

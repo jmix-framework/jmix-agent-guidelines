@@ -140,7 +140,7 @@ where e.order = :container_ordersDc.selected
 
 ## Migrating from service call to entity create
 
-When a spec evolves a button from "collect a value, call a service" to "create an entity through its detail view", REMOVE the input dialog and call the detail dialog DIRECTLY. Do NOT chain an `InputDialog` before the detail dialog — a UI test that clicks the button expects a `StandardDetailView` immediately, and an `InputDialog` cast to `StandardDetailView` throws `ClassCastException`.
+To migrate a button from "collect a value, call a service" to "create an entity through its detail view", REMOVE the input dialog and call the detail dialog DIRECTLY. Do NOT chain an `InputDialog` before the detail dialog — a UI test that clicks the button expects a `StandardDetailView` immediately, and an `InputDialog` cast to `StandardDetailView` throws `ClassCastException`.
 
 WRONG (broken hybrid):
 
@@ -182,7 +182,7 @@ public void onActionButtonClick(ClickEvent<JmixButton> event) {
 }
 ```
 
-The detail view itself collects the scalar attributes; the entity is created on save; a side effect (e.g. an `EntityChangedEvent` listener) performs any derived update. The button just opens the detail dialog — nothing in between. When the spec says "open the X detail view from the button", that means LITERALLY: no `InputDialog`, no `MessageDialog`, no service call before the dialog opens.
+The detail view itself collects the scalar attributes; the entity is created on save; a side effect (e.g. an `EntityChangedEvent` listener) performs any derived update. The button just opens the detail dialog — nothing in between. "Open the X detail view from the button" means LITERALLY no `InputDialog`, no `MessageDialog`, and no service call before the dialog opens.
 
 ## Scalar Input Dialog
 
@@ -220,7 +220,7 @@ public void onAdjustButtonClick(final ClickEvent<JmixButton> event) {
 }
 ```
 
-Use message keys for dialog headers, labels, and notifications. Keep service calls in services; the view should only collect input, call the service, and reload loaders.
+Use message keys for dialog headers, labels, and notifications. Keep service calls in services; the view should only collect input, call the service, and reload loaders. (`messageBundle`, `service`, and `affectedDl` above are the view's existing injected dependencies — `MessageBundle`, your service bean, and the affected `CollectionLoader` — not re-shown here.)
 
 ## `IllegalArgumentException: argument type mismatch` on a button = WRONG HANDLER SIGNATURE
 
@@ -243,7 +243,7 @@ Do NOT respond to this error by changing the `InputParameter` type (`intParamete
 - Raw Vaadin `Dialog` for entity create/edit flows.
 - Raw Vaadin `Dialog` for ordinary scalar input workflows.
 - Direct service update when the domain requires creating an entity record.
-- Chaining an `InputDialog`/`MessageDialog`/service call before opening the detail dialog when the spec says "open the detail view from the button".
+- Chaining an `InputDialog`/`MessageDialog`/service call before opening the detail dialog when the button should open the detail view directly.
 - Refreshing loaders after cancel/close when no save occurred.
 - Refreshing grids with `getDataProvider().refreshAll()` instead of loader reload.
 - Comparing entity-valued JPQL properties to UUID parameters.

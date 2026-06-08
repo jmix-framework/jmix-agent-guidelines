@@ -111,10 +111,13 @@ Before finishing, check:
 - Test data has unique values to avoid collisions.
 - Assertions verify persisted or visible behavior, not just absence of exceptions.
 - The test command can run one class or method without running the full suite.
+- No `@Transactional` on the test class or methods — it rolls back the writes that `@AfterEach` cleanup and the twice-back-to-back run depend on.
 - Run the single class twice back-to-back — a second green run proves no leaked rows or cross-test data dependence that one pass hides.
 
 ## Forbidden
 
+- `@Transactional` on test classes/methods — it rolls back writes, so `@AfterEach` cleanup of committed entities and running the test twice back-to-back both stop working.
+- `@MockBean` (deprecated) — use `@MockitoBean`.
 - `new Entity()` or constructor-created Jmix entities in persistence tests.
 - Tests that depend on data left by previous tests.
 - Cleanup only at the end of the test method.

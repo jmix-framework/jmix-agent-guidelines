@@ -75,27 +75,50 @@ Three patterns, in order of preference:
 private Integer quantity = 0;
 ```
 
-**Runtime default for create — `@PrePersist`**
+**Initial default at creation — `@PostConstruct`**
+
+`@PostConstruct` fires when Jmix instantiates the entity
+(`DataManager.create()`, `Metadata.create()`, `DataContext.create()`),
+before the caller sets any field. Works for both JPA entities and DTOs.
+See [Initial Entity Values — post-construct
+initialization](https://docs.jmix.io/jmix/initial-entity-values-guide/index.html#post-construct-initialization).
 
 ```java
 @Column(name = "CREATED_AT", nullable = false)
 @NotNull
 private LocalDateTime createdAt;
 
-@PrePersist
-protected void onPrePersist() {
-    if (createdAt == null) {
-        createdAt = LocalDateTime.now();
+@PostConstruct
+public void postConstruct() {
+    createdAt = LocalDateTime.now();
+}
+```
+
+Imports (Spring Boot 3 uses `jakarta.*`, never `javax.*`): `@PostConstruct` from `jakarta.annotation`; `@NotNull` / `@Email` from `jakarta.validation.constraints`.
+
+**Auto-set on every save — `EntitySavingEvent` listener** (for
+`lastUpdated`-style fields that must touch on UPDATE too, or for any
+cross-entity defaulting):
+
+```java
+import io.jmix.core.event.EntitySavingEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CustomerSavingListener {
+
+    @EventListener
+    public void onSaving(EntitySavingEvent<Customer> event) {
+        event.getEntity().setLastUpdated(LocalDateTime.now());
     }
 }
 ```
 
-**Auto-set on update too — add `@PreUpdate`** (e.g. a `lastUpdated`
-field): annotate the touch method with both `@PrePersist` and
-`@PreUpdate`.
-
-A before-persist `EntitySavingEvent` listener is an acceptable
-alternative for cross-entity logic.
+`EntitySavingEvent` fires before EVERY save (both insert and update),
+so the listener covers initial and subsequent timestamps in one place.
+`Customer` must declare the `lastUpdated` field; for the full event-listener
+pattern see `jmix-add-entity-event-listener`.
 
 ### Anti-patterns that look right and break tests
 
@@ -130,12 +153,25 @@ import jakarta.persistence.OneToMany;
 @Composition
 @OnDelete(DeletePolicy.CASCADE)
 @OneToMany(mappedBy = "parent")
-private List<ChildLine> lines;
+private List<ChildLine> lines;  // leave uninitialized — Jmix returns a NotInstantiatedList
 
 @JoinColumn(name = "PARENT_ID", nullable = false)
 @ManyToOne(fetch = FetchType.LAZY, optional = false)
 private Parent parent;
 ```
+
+## Auditing and Soft Delete
+
+Add audit fields with the Spring Data annotations from `org.springframework.data.annotation`: `@CreatedBy`, `@CreatedDate`, `@LastModifiedBy`, `@LastModifiedDate`. For soft delete add `@DeletedBy` and `@DeletedDate` from `io.jmix.core.annotation` — soft-deleted rows are then auto-filtered out of `DataManager`/JPQL queries.
+
+## Calculated and Transient Properties
+
+Non-persistent derived attributes use `@JmixProperty` + `@Transient` + `@DependsOnProperties({"a", "b"})` (`@JmixProperty` from `io.jmix.core.metamodel.annotation`). The same applies to an `@InstanceName` method: it must carry `@DependsOnProperties` listing every attribute it reads so they are fetched.
+
+## Embeddable, Inheritance, and Data Stores
+
+- `@Embeddable` value objects (still annotated `@JmixEntity`) are supported, as are JPA inheritance strategies (`@Inheritance` with `JOINED`, `SINGLE_TABLE`, or `TABLE_PER_CLASS`).
+- For a non-default data store, annotate the entity with `@Store(name = "...")` (defined in `application.properties`); add-on entities use an entity-name prefix, e.g. `@Entity(name = "app_Customer")`.
 
 ## Constraint Audit
 
@@ -164,8 +200,10 @@ Apply common Java validation and persistence mappings when the field semantics a
 
 - Missing `@JmixEntity`.
 - Constructor-based entity creation.
+- Lombok annotations (`@Data`, `@Getter`, `@Setter`, etc.) on Jmix entities — they interfere with the entity enhancer and break JPA/Jmix metadata.
 - `FetchType.EAGER`.
 - Missing Liquibase changelog for persistent changes.
 - Nullable child back references in composition aggregates.
 - Relying only on UI initialization for required persistence fields.
+- Instantiating or replacing a collection field that Jmix populated — it may be a `NotInstantiatedList`/`NotInstantiatedSet`. Leave collection fields uninitialized; do not assign `new ArrayList`/`new HashSet`.
 - A 0-byte `.java` — it passes compile and the clean test boot, but breaks the registry. Confirm every file you wrote is non-empty.

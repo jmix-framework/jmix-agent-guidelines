@@ -134,7 +134,7 @@ schema does not support all compile clean and then throw
    `fragmentSettings` vs `settings`) must exist in this project. Confirm via
    Context7 (`/jmix-framework/jmix-context7`), IDE symbol search, or an existing
    fragment in `src/` — see `verify-api-symbol`.
-2. **Static inspection (Gate 1).** Run `idea-static-analysis`
+2. **Static inspection (Gate 1).** Run `ide-static-analysis`
    (get_file_problems) on the fragment descriptor and the host view — the
    Jmix-XSD-aware inspection flags an unsupported `<facets>` element, an unknown
    component, or a `provided` container with no host counterpart that the

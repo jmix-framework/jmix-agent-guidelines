@@ -67,7 +67,9 @@ Do not add `@JmixEntity` just because a class is called DTO.
 For a DTO collection shown in a view, use a collection container and load it explicitly from a service or load delegate:
 
 ```xml
-<collection id="customerSummariesDc" class="com.company.app.entity.CustomerSummary"/>
+<collection id="customerSummariesDc" class="com.company.app.entity.CustomerSummary">
+    <loader id="customerSummariesDl" readOnly="true"/>
+</collection>
 ```
 
 ```java
@@ -95,7 +97,7 @@ fails when the view initializes / renders.
    `io.jmix.core.metamodel.annotation`. Confirm the package and members of any
    annotation new to the project via Context7 (`/jmix-framework/jmix-context7`)
    or IDE symbol search — see `verify-api-symbol`.
-2. **Static inspection (Gate 1).** Run `idea-static-analysis`
+2. **Static inspection (Gate 1).** Run `ide-static-analysis`
    (get_file_problems) on the view XML that binds the DTO container — it flags
    a container `class` or property path that does not resolve, which the
    compiler never checks.

@@ -25,7 +25,10 @@ Run the project's terminating context-load test:
 ```
 
 It boots the Spring/Jmix context, runs the project's seed tests, and EXITS.
-Confirm `BUILD SUCCESSFUL` and no failed tests.
+Confirm `BUILD SUCCESSFUL` and no failed tests. Also confirm tests actually
+ran: `Tests run: 0` (or no test task at all) means the context was never
+booted and Gate 2 did NOT pass — ensure at least one context-load test exists
+and executed.
 
 **NEVER use `./gradlew bootRun` (or any non-terminating server start) as the
 Gate-2 check.** bootRun does not exit — it hangs your turn and leaves the HTTP
@@ -45,6 +48,25 @@ checks and the optional Gate 3.
 Gate 3 is OPTIONAL. Skip it with an explicit note (`Gate-3 skipped: no browser
 tool` or `Gate-3 skipped: app did not boot`) if you have no browser-automation
 tool or the app does not boot.
+
+**Prerequisite — Spring Boot Actuator.** The readiness probe below polls
+`/actuator/health`, so the project must include the Actuator starter and expose
+the `health` endpoint:
+
+```groovy
+// build.gradle
+implementation 'org.springframework.boot:spring-boot-starter-actuator'
+```
+
+```properties
+# application.properties
+management.endpoints.web.exposure.include=health
+```
+
+Most generated Jmix projects already include Actuator; verify with
+`./gradlew dependencies | grep actuator` if unsure. If Actuator is not
+configured, skip Gate 3 or use an alternative readiness signal (e.g. tail the
+boot log for `Started <App>Application in ...`).
 
 If you do have one, run the mechanical checks first, then:
 
