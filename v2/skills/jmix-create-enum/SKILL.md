@@ -66,6 +66,12 @@ public void setType(TransactionType type) {
 }
 ```
 
+## Stable-id type-chain
+
+Keep one consistent id type across `EnumClass<T>`, `getId()`/`fromId()`, the entity field, and the Liquibase column (e.g. all `String`/`VARCHAR`). A mismatch compiles cleanly but silently corrupts load/save. Each literal id must be a hardcoded stable value, never a display label or `ordinal()`/`name()`.
+
+When binding an enum attribute in a view, use `<comboBox>` (its `Range` is an enumeration) — not `entityComboBox`, which is for entity associations.
+
 ## Forbidden
 
 - `io.jmix.core.EnumClass`.
@@ -73,9 +79,3 @@ public void setType(TransactionType type) {
 - Storing display labels as ids.
 - `ordinal()` or enum `.name()` persistence.
 - Missing enum message keys.
-
-## Stable-id type-chain
-
-Keep one consistent id type across `EnumClass<T>`, `getId()`/`fromId()`, the entity field, and the Liquibase column (e.g. all `String`/`VARCHAR`). A mismatch compiles cleanly but silently corrupts load/save. Each literal id must be a hardcoded stable value, never a display label or `ordinal()`/`name()`.
-
-When binding an enum attribute in a view, use `<comboBox>` (its `Range` is an enumeration) — not `entityComboBox`, which is for entity associations.

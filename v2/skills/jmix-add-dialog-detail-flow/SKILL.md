@@ -5,7 +5,7 @@ description: Open a Jmix entity detail view from a button/action and refresh rel
 
 # Add Dialog Detail Flow
 
-Use this skill when a button or action should create or edit an entity in a modal detail view, or collect a small scalar value through a Jmix input dialog.
+Use this skill when a button or action should create or edit an entity in a modal detail view, or collect a small scalar value through a Jmix input dialog. For parent-owned children edited inside the parent's own detail view via a property-bound `<collection property=...>` container (no query loader), use `jmix-create-composition-detail-view` instead.
 
 ## Steps
 
@@ -15,7 +15,7 @@ Use this skill when a button or action should create or edit an entity in a moda
 4. Open `DialogWindows.detail(this, Entity.class).newEntity()` or `.editEntity(entity)`.
 5. Use `.withInitializer(...)` to set parent/default fields.
 6. Use `.withAfterCloseListener(...)` and refresh every affected loader only after `StandardOutcome.SAVE`.
-7. Make sure the opened detail view exists and roles have its `@ViewPolicy`.
+7. Make sure the opened detail view exists and roles have its `@ViewPolicy` (see `jmix-create-detail-view` and `jmix-create-resource-role`).
 8. Use valid listener signatures when installing grid selection listeners.
 
 ## Create Child Entity From Selected Master

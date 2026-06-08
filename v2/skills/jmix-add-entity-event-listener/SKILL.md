@@ -16,9 +16,9 @@ Use this skill when business logic must react to entity save, change, delete, or
    - `io.jmix.core.event.EntityLoadingEvent`
    - `io.jmix.core.event.EntitySavingEvent`
 4. For created entities, load by `event.getEntityId()` when related data is needed.
-5. If you specify a custom fetch plan, include every scalar and reference property read later.
+5. If you specify a custom fetch plan, include every scalar and reference property read later (see `jmix-configure-fetch-plan`).
 6. For deleted entities, do not load `event.getEntityId()`; use old values or old reference ids from `event.getChanges()`.
-7. Use `EntitySavingEvent` for defaults or transformations that must happen before data is saved.
+7. Use `EntitySavingEvent` for defaults or transformations that must happen before data is saved; a required persistent default still belongs at the entity layer (see `jmix-create-entity`).
 8. Use `EntityLoadingEvent` for initializing non-persistent attributes from already loaded local persistent state.
 9. Use a before-commit `@EventListener` path for validation that must reject the current save/remove operation.
 10. Put multi-entity changes in a transactional service method when atomicity matters.

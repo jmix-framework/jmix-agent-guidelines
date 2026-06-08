@@ -5,7 +5,7 @@ description: Add editable parent-child composition UI in a Jmix detail view.
 
 # Create Composition Detail Editing
 
-Use this skill when a parent entity owns child entities edited inside the parent detail view.
+Use this skill when a parent entity owns child entities edited inside the parent detail view through a property-bound `<collection property=...>` container (no query loader). For a button/action that opens a standalone detail dialog, or a master-row selection that filters an independently query-loaded child grid, use `jmix-add-dialog-detail-flow` instead.
 
 ## The child's OWN detail view must exist
 
@@ -25,7 +25,7 @@ never surfaces any of this.
 
 ## Steps
 
-1. Ensure the entity model is a real composition:
+1. Ensure the entity model is a real composition (model it with `jmix-create-entity`):
    - parent collection has `@Composition`;
    - child has non-null parent back reference;
    - parent has cascade delete if child lifecycle belongs to parent.
@@ -35,8 +35,8 @@ never surfaces any of this.
 5. Add `list_create`, `list_edit`, and `list_remove` actions to the child grid.
 6. Render visible child-grid buttons for create, edit, and remove.
 7. Add `openMode=DIALOG` to create/edit actions.
-8. Add view policy for the child detail view.
-9. Add messages for child entity and view title.
+8. Add view policy for the child detail view (see `jmix-create-resource-role`).
+9. Add messages for child entity and view title (see `jmix-add-i18n-keys`).
 
 The child collection container is property-bound (`<collection
 property=...>`): no loader or query, and the parent fetchPlan must

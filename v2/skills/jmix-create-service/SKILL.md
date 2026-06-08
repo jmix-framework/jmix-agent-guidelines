@@ -76,3 +76,7 @@ List<Customer> activeCustomers = dataManager.load(Customer.class)
 - Constructor calls for Jmix entities.
 - `EntityManager` for regular CRUD.
 - Missing transaction boundary for multi-step updates that must be atomic.
+
+## Verify
+
+Verify any unfamiliar Jmix/Vaadin symbol before typing it (`verify-api-symbol`), then run the gates after writing the service: static checks (`ide-static-analysis`) and the context-load test (`jmix-verify-bootrun`).

@@ -6,7 +6,7 @@
   },
   "versions": {
     "v2": {
-      "sha256": "78897e29dd7bcda5651e7fe82ada11b80645c49b15fea595e70d7bd00e22ce5d",
+      "sha256": "6899e774c63676e324feb8100a8cc7737b231aa36e726d4fbaeb32d4bc5a3aa1",
       "skills": [
         "ide-static-analysis",
         "jmix-add-dialog-detail-flow",
