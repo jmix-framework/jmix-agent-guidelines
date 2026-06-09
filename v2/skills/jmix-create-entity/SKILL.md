@@ -80,8 +80,6 @@ private Integer quantity = 0;
 `@PostConstruct` fires when Jmix instantiates the entity
 (`DataManager.create()`, `Metadata.create()`, `DataContext.create()`),
 before the caller sets any field. Works for both JPA entities and DTOs.
-See [Initial Entity Values — post-construct
-initialization](https://docs.jmix.io/jmix/initial-entity-values-guide/index.html#post-construct-initialization).
 
 ```java
 @Column(name = "CREATED_AT", nullable = false)

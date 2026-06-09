@@ -1,4 +1,4 @@
-# Jmix agent — operating instructions
+# Agent Instructions
 
 Use these instructions when working on a Jmix 2 application.
 
