@@ -16,8 +16,18 @@ If you have a Jmix-aware IDE/semantic inspection (e.g. JetBrains
 `*-view.xml` you touched — this is your primary Gate-1 check. It is the only STATIC
 catch for the descriptor defects a compiler cannot see: unresolved `msg://` keys,
 invalid property paths, missing data containers, broken component bindings (and it
-flags the same Java errors a compile would). Two rules when you use one:
+flags the same Java errors a compile would). Rules when you use one:
 
+- **Always pass `projectPath` — your project's absolute root (`pwd`).** The project
+  you work in is opened as its own root, so `projectPath` = your current working
+  directory. Pass it on EVERY JetBrains MCP call (`get_file_problems`,
+  `get_project_modules`, `create_new_file`, …): with more than one project open the
+  IDE cannot tell which you mean and the call fails — `No exact project is specified`
+  or a malformed `-32602` response — so the gate silently does nothing. **If you do
+  not know the root:** issue any JetBrains MCP call once WITHOUT `projectPath`; the
+  error lists every open project as `Currently open projects: {"projects":[{"path":
+  …}]}`. Pick the entry equal to (or the deepest one containing) your `pwd`, then
+  reuse it as `projectPath` for all later calls.
 - **Surface WARNINGS, not just errors.** Jmix-plugin findings (unresolved
   `msg://`, bad fetch/entity refs, broken bindings) are typically reported as
   WARNINGS — an errors-only view looks clean when it is not. Include warnings and
