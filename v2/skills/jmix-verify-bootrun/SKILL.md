@@ -43,11 +43,18 @@ catastrophic breakage (broken view registry, schema/Liquibase error, missing
 `@JmixEntity`), not render-time UI defects — those are caught by the mechanical
 checks and the optional Gate 3.
 
-## Gate 3 — optional render walk (only if you have a browser/UI tool)
+## Gate 3 — render walk (REQUIRED for every view/role you created or changed)
 
-Gate 3 is OPTIONAL. Skip it with an explicit note (`Gate-3 skipped: no browser
-tool` or `Gate-3 skipped: app did not boot`) if you have no browser-automation
-tool or the app does not boot.
+Gate 3 is the ONLY gate that opens your new views/roles at runtime (Gate 2 does
+not), so it is NOT optional when you created or changed one. Per such view, pick
+ONE:
+- a browser/UI-automation tool is connected → render-walk it (below); or
+- no browser tool → write a minimal headless `@UiTest` that navigates to the
+  view and asserts it opens (see `jmix-create-test`).
+
+Do not write "no browser tool" without checking the connected tools. Only if a
+view can be reached by NEITHER a browser tool NOR a `@UiTest`, skip it — and then
+report `render NOT verified: <view>`, never "all gates passed".
 
 **Prerequisite — Spring Boot Actuator.** The readiness probe below polls
 `/actuator/health`, so the project must include the Actuator starter and expose
@@ -63,10 +70,10 @@ implementation 'org.springframework.boot:spring-boot-starter-actuator'
 management.endpoints.web.exposure.include=health
 ```
 
-Most generated Jmix projects already include Actuator; verify with
-`./gradlew dependencies | grep actuator` if unsure. If Actuator is not
-configured, skip Gate 3 or use an alternative readiness signal (e.g. tail the
-boot log for `Started <App>Application in ...`).
+Jmix projects do NOT bundle Actuator by default — add the dependency and
+property above (verify with `./gradlew dependencies | grep actuator`). If you
+cannot add/configure it, use the `@UiTest` path instead, or an alternative
+readiness signal: tail the boot log for `Started <App>Application in ...`.
 
 If you do have one, run the mechanical checks first, then:
 
