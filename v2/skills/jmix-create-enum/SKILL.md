@@ -16,7 +16,7 @@ Use this skill when an entity attribute has a fixed set of values.
 5. Store the enum id type in the entity field.
 6. Add getter/setter conversion in the entity.
 7. Add Liquibase column matching the id type.
-8. Add enum message keys in all locale files.
+8. Add enum message keys in all locale files — see `jmix-add-i18n-keys` for the `<package>/<EnumClass>.<CONSTANT>` key shape (e.g. `com.company.app.entity/TransactionType.INCOME`), NOT an all-dots `FQCN.CONSTANT` form.
 
 ## Enum Template
 
@@ -65,6 +65,12 @@ public void setType(TransactionType type) {
     this.type = type == null ? null : type.getId();
 }
 ```
+
+## Stable-id type-chain
+
+Keep one consistent id type across `EnumClass<T>`, `getId()`/`fromId()`, the entity field, and the Liquibase column (e.g. all `String`/`VARCHAR`). A mismatch compiles cleanly but silently corrupts load/save. Each literal id must be a hardcoded stable value, never a display label or `ordinal()`/`name()`.
+
+When binding an enum attribute in a view, use `<comboBox>` (its `Range` is an enumeration) — not `entityComboBox`, which is for entity associations.
 
 ## Forbidden
 

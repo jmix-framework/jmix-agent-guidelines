@@ -1,101 +1,149 @@
-# Jmix Coding Guidelines
+# Agent Instructions
 
 Use these instructions when working on a Jmix 2 application.
 
-## Project Stack
+## Project stack
 
 - Java 17
 - Jmix 2, Spring Boot 3, Vaadin 24
 - Gradle
 - Relational database with Liquibase migrations
 
-## Skill Routing
+## Step 0 — map the task to artifacts, READ the matching skill BEFORE writing
 
-Use the most specific skill for the task:
+The most common cause of defects is writing a Jmix artifact from memory instead
+of from the rule that governs it. Your Jmix/Vaadin priors are the single biggest
+source of wrong API names and broken descriptors.
 
-- Creating or changing a persistent entity: `jmix-create-entity`
-- Creating an enum used by an entity: `jmix-create-enum`
-- Creating a list view: `jmix-create-list-view`
-- Creating a detail view: `jmix-create-detail-view`
-- Creating parent-child composition editing: `jmix-create-composition-detail-view`
-- Implementing service-layer business logic: `jmix-create-service`
-- Opening an entity detail dialog from a button/action: `jmix-add-dialog-detail-flow`
-- Adding entity lifecycle/event business logic: `jmix-add-entity-event-listener`
-- Adding or changing database schema: `jmix-create-liquibase-changelog`
-- Creating or changing resource roles: `jmix-create-resource-role`
-- Adding user-visible text or entity/enum captions: `jmix-add-i18n-keys`
-- Configuring fetch plans or fixing unfetched/N+1 loading issues: `jmix-configure-fetch-plan`
-- Creating DTO entities or UI-bound non-persistent models: `jmix-create-dto-entity`
-- Creating reusable Flow UI fragments or fragment renderers: `jmix-create-fragment`
-- Adding or changing tests: `jmix-create-test`
+Before writing a single file:
 
-## Tooling
+1. List every artifact the task implies — entities, enums, list views, detail
+   views, composition children, services, event listeners, resource roles,
+   changelogs, menu entries, message bundles.
+2. For EACH artifact, READ the matching skill in **Skill routing** before you
+   write it.
+3. Only then start writing.
 
-- If Context7 MCP is available, use it to confirm unfamiliar Jmix APIs and to find Jmix code examples.
-- If JetBrains MCP is available and the project is open in IntelliJ IDEA, use it to check modified files for inspections and errors.
-- For UI changes, if Playwright is available and the application can be run, use it to verify navigation and user interactions in the browser.
-- Do not block work if these tools are unavailable; state what was checked manually instead.
+The verification skills (`jmix-ide-static-analysis`, `jmix-verify-bootrun`) are
+gates, not how-to. They do not replace the artifact skill.
 
-## Global Rules
+## Tooling — MCP first, universal floor always
 
-- Prefer Jmix APIs and generated project patterns over raw framework code.
-- For change requests on an existing feature, preserve existing behavior and constraints unless the new request explicitly changes them. Inspect current entities, views, listeners, roles, and changelogs before editing.
-- Use `DataManager` for normal CRUD. Use `EntityManager` only for bulk/native operations that `DataManager` cannot express, and only inside an explicit transaction.
-- Keep business logic in services or Spring event listeners, not in view controllers.
-- Do not use Lombok on Jmix entities.
-- Do not instantiate Jmix entities with constructors. Use `DataManager.create()`, `Metadata.create()`, or `DataContext.create()` depending on context.
-- Do not hardcode user-visible UI text. Use message keys.
-- Do not invent XML component attributes, Vaadin icon names, or Jmix action ids. Reuse existing project patterns or omit optional decoration.
-- Before using a Jmix or Vaadin API that is not already used in the project, search the current project for a working example; if none exists and Context7 MCP is available, use it to confirm the API and follow official examples.
-- Do not edit generated frontend files.
+This profile may ship MCP servers — a Jmix-aware IDE inspection (e.g. JetBrains
+`get_file_problems`), Context7 (`/jmix-framework/jmix-context7`), and Playwright
+for the browser. **When a server is connected, it is your PRIMARY check — reach
+for it first.** ANY server may be absent; when one is, do NOT skip the check —
+fall back to the universal floor: `compileJava`, `./gradlew clean test`, and
+the mechanical-floor commands in `jmix-ide-static-analysis`.
 
-## Required Cross-Cutting Work
+## Gates before declaring a task done
 
-For each new persistent entity, complete all related artifacts:
+A task is NOT done after the code compiles. Three gates, in order; never assert
+a gate passed without showing the evidence. At each gate use the MCP tool if it
+is connected (primary); fall back to the universal check only when it is not.
 
-- Entity class with Jmix/JPA metadata.
-- Liquibase changelog included from the root changelog.
-- Message keys for entity, attributes, enum values, view titles, buttons, and actions.
-- List/detail views when the entity is user-facing.
-- Resource role policies for entity operations, attributes, views, and menu items.
+| Gate | Primary — MCP, if connected | Fallback — always available |
+|------|------|------|
+| 1 API & static | verify EVERY Jmix/Vaadin symbol via **Context7** (`/jmix-framework/jmix-context7`) before you type it, AND run the IDE inspection (**`get_file_problems`**) on every file you wrote — for `*-view.xml` it is the only static catch for unresolved `msg://`, invalid property paths, and missing data containers | `compileJava` + the mechanical-floor commands in `jmix-ide-static-analysis` |
+| 2 Context loads | *(no MCP substitute — always run the fallback)* | `./gradlew --no-daemon clean test` — boots the Spring/Jmix context, runs Liquibase + project tests, then EXITS |
+| 3 Render | render-walk every view/button/field with the **browser tool** (Playwright) — confirm no error overlay, server exception, or raw `msg://` caption | no universal substitute — run the mechanical checks (the render-defect floor), then state `render not browser-verified` |
 
-For each new user-facing view:
+NEVER use `bootRun` (or any non-terminating server start) as the Gate-2 check —
+it does not exit and will hang your turn. Gate 2 is `clean test`. If you DO
+start a server to render-walk, run it in the background and poll
+`/actuator/health` until it is UP before driving the browser, then shut it down
+cleanly.
 
-- Java controller and XML descriptor.
-- Stable view id.
-- Menu entry for top-level list views only.
-- Message keys for titles, labels, and buttons.
-- View policies for every role that can open it, including dialog-only detail views.
-- Visible buttons or menu items for every action the user must be able to trigger.
-- Typed form components that match property types.
+`compileJava` is BLIND to XML descriptors. Every `*-view.xml` defect — a
+reference/enum field bound wrong, a broken `itemsQuery`, an action opening a
+view id that does not exist (`NoSuchViewException`) — compiles perfectly clean.
+A green `clean test` is necessary but NEVER sufficient: the context-load tests
+boot the Spring/Jmix context but do NOT open your new views or exercise your
+new roles.
 
-For each new business operation:
+Emit the evidence in your completion report. Per file you touched: its
+static-check verdict. Per view/button/field you created: how you verified it
+(inspection, mechanical check, or render walk). "BUILD SUCCESSFUL, all done"
+with no per-file check and no render evidence is a non-answer.
 
-- Put the operation in a service or listener, not in a view.
-- Define clear transaction boundaries.
-- Prefer `DataManager` for CRUD.
-- Keep UI notifications, dialogs, and components out of services.
-- Defaults for required persistent fields must work outside UI-only paths.
+## Anti-hallucination — verify a symbol before you type it
 
-For each DTO entity or UI-bound non-persistent model:
+Inventing plausible-looking API names is a top failure mode: they survive
+typing but blow up at compile or runtime. Before you type any Jmix/Vaadin
+symbol not already used in this project's `src/`, verify it — Context7 is your
+PRIMARY check when connected, else an IDE symbol search, else grep this project
+for a working example. (If the exact symbol is already used in `src/`, copy
+that call site.) High-frequency wrong→right traps are catalogued in
+`jmix-verify-api-symbol`.
 
-- Use Jmix DTO metadata, not JPA annotations.
-- Provide a stable `@JmixId` when identity matters.
-- Add message keys when the model is shown in UI or exposed with localized captions.
-- Keep DTO entities out of Liquibase unless they are backed by an explicit custom persistence mechanism.
+## Skill routing
 
-For each reusable UI fragment:
+READ the most specific skill for each artifact:
 
-- Create both controller and XML descriptor.
-- Keep fragment XML self-contained or explicitly mark host-provided data components.
-- Use fragment-specific facets when needed.
-- Add message keys for user-visible fragment text.
+- Verify a Jmix/Vaadin API: `jmix-verify-api-symbol`
+- Static checks / inspections / mechanical floor: `jmix-ide-static-analysis`
+- Gate-2 context-load test (+ optional Gate-3 render walk): `jmix-verify-bootrun`
+- Persistent entity: `jmix-create-entity`
+- Enum used by an entity: `jmix-create-enum`
+- List view: `jmix-create-list-view`
+- Detail view: `jmix-create-detail-view`
+- Parent-child composition editing (property-bound container, NO query loader): `jmix-create-composition-detail-view`
+- Service-layer business logic: `jmix-create-service`
+- Detail dialog from a button/action, OR master-row selection → filtered child grid: `jmix-add-dialog-detail-flow`
+- Entity lifecycle/event business logic: `jmix-add-entity-event-listener`
+- Database schema: `jmix-create-liquibase-changelog`
+- Resource roles: `jmix-create-resource-role`
+- User-visible text / entity-enum captions: `jmix-add-i18n-keys`
+- Tests: `jmix-create-test`
+- Fetch plans / unfetched-reference / N+1 tuning: `jmix-configure-fetch-plan`
+- DTO / non-persistent UI-bound model: `jmix-create-dto-entity`
+- Reusable Flow UI fragment: `jmix-create-fragment`
 
-## Validation Before Finishing
+## Cross-cutting checklist for a new entity / view
 
-- Run the smallest relevant compile/test command available for the change.
-- Read compile and startup failures; fix deterministic failures before reporting completion.
-- Search changed XML and Java for obvious drift before reporting completion: table names in JPQL, unresolved `msg://` keys, hardcoded visible labels, missing components referenced by `urlQueryParameters`, raw Vaadin dialogs for Jmix workflows, unsafe loader parameter handling, after-commit listeners used for validation or required mutations, and form components that do not match property types.
-- Compare resource role menu policies against actual `menu.xml` item ids or view ids.
-- For update tasks, compare touched artifacts against their previous constraints and defaults before reporting completion.
-- If tests cannot be run, state the exact blocker and what was validated instead.
+For each new persistent entity, run through: `jmix-create-entity` +
+`jmix-create-liquibase-changelog` + `jmix-create-resource-role` +
+`jmix-add-i18n-keys`. For a user-facing entity, also add a list and/or detail
+view (`jmix-create-list-view`, `jmix-create-detail-view`) and a view policy in
+every role that can open them — **including dialog-only detail views opened
+from a composition table**.
+
+Service- or listener-level defaulting does NOT relieve the entity from
+defaulting required fields on initial persist — defaults must work through
+`DataManager.create()` + `DataManager.save()` directly (tests bypass the view
+layer). See `jmix-create-entity`.
+
+## When tests fail — it is almost never "pre-existing"
+
+If the project ships a passing test suite and a test goes red after your change,
+assume you broke it. A red `clean test` means the task is not done; investigate
+before declaring a red gate "pre-existing." Common causes:
+
+- **`NoSuchViewException` after you added views** → you broke the VIEW REGISTRY;
+  it scans all `@ViewController` classes at startup and one broken view poisons
+  navigation to EVERY view, including pre-existing ones. Check, in order: (1) every new
+  view `.java` has a `package` line matching its directory — a class in the
+  default package registers its `@Route`/`@ViewController` wrong; (2) no two
+  `@ViewController(id=…)` share an id; (3) every `@ViewDescriptor` path resolves
+  to a real XML next to the class; (4) no `*-view.xml` is empty/malformed — an
+  empty descriptor throws `SAXParseException: Premature end of file` and poisons
+  the registry.
+- **`MetaClass not found for class X`** → the entity is missing `@JmixEntity`, or
+  its package is outside the application scan root.
+- **`ConstraintViolationException` on save** → a `@NotNull` persistent field has
+  no value on the `DataManager` path (see `jmix-create-entity`).
+
+Fix the cause, re-run `clean test` until green. A test that goes red and you
+cannot explain is a blocker, never a footnote in your "done" summary.
+
+## File-write trap
+
+Always pass absolute paths to file-writing tools; in nested-project layouts the
+working directory may not be what you assume. After a batch of writes, `ls` the
+path you intended AND confirm each file is NON-EMPTY — a tool that silently
+writes a 0-byte file leaves a defect that compile and `clean test` will NOT
+catch (an empty role class drops all its policies; an empty `*-view.xml`
+poisons the view registry). If a file is missing or empty, find and rewrite
+it; do NOT `rm -rf` to "clean up".
+
+Never edit generated frontend files — they are regenerated on every build.

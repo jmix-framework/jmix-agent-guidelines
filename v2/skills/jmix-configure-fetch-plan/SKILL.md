@@ -17,7 +17,7 @@ Use this skill when a task changes what entity attributes or references are load
 6. For service/listener code, add a fluent `DataManager.fetchPlan(...)` or named plan before reading references after load.
 7. Avoid deep nested collections; prefer a second focused load when a graph becomes wide or multi-collection.
 8. Check custom fetch plans against every `getX()` call after load.
-9. Compile or run the smallest test that exercises the load path.
+9. Verify property names and run the load path before trusting the plan (see **Verify** below).
 
 ## XML Pattern
 
@@ -54,6 +54,28 @@ Order order = dataManager.load(event.getEntityId())
         .one();
 ```
 
+## Fetch Modes
+
+Set per-property fetch mode to control how references are loaded:
+
+- `AUTO` — framework picks the optimal mode (default).
+- `JOIN` — loads the reference in the same SQL query; best for to-one references.
+- `BATCH` — loads references in a separate `IN`-clause query; best for to-many collections (avoids N+1).
+- `UNDEFINED` — separate SELECT per reference attribute.
+
+Set it with the `fetch` attribute on a fetch-plan property (the XML attribute is `fetch`, NOT `fetchMode`):
+
+```xml
+<fetchPlan extends="_base">
+    <property name="customer" fetch="JOIN"/>  <!-- to-one -->
+    <property name="lines" fetch="BATCH"/>     <!-- to-many collection -->
+</fetchPlan>
+```
+
+## JmixDataRepository
+
+Select the plan in one of two ways: pass a `FetchPlan` as the **last** method argument, or annotate the method with `@FetchPlan("name")` (`io.jmix.core.repository.FetchPlan`). A plain `String` parameter is bound as an ordinary query parameter, NOT a plan selector. Build complex plans with the `FetchPlans` bean: `fetchPlans.builder(Order.class).addFetchPlan(FetchPlan.BASE).add("customer", FetchPlan.INSTANCE_NAME).build()`.
+
 ## Partial Entity Audit
 
 Use a partial fetch plan only when it is intentionally narrower than `_base`:
@@ -68,6 +90,29 @@ Use a partial fetch plan only when it is intentionally narrower than `_base`:
 Prefer inline XML or fluent `DataManager` fetch plans for feature-local needs.
 
 Use `fetch-plans.xml` only when the same complex graph is reused in multiple places. If you add a shared plan, configure or verify the project's `jmix.core.fetch-plans-config` property and keep the name stable.
+
+## Verify — compile is blind to fetch plans
+
+`compileJava` never reads view XML or fetch-plan property names, so a missing
+or misspelled reference is invisible until the load path runs: a detached
+entity throws `IllegalStateException: Cannot get unfetched attribute [...]` at
+RENDER time, or when a service/test reads `getX()` after load. The gate is
+never the compiler.
+
+1. **Property names — verify before you type them.** Every `<property
+   name="...">` in a `<fetchPlan>` and every `.add("...")` in a fluent plan
+   must be a real attribute of the entity, and the `FetchPlan` constants
+   (`FetchPlan.BASE`, `FetchPlan.INSTANCE_NAME`) and built-in plan names
+   (`_base`, `_instance_name`) must be spelled exactly. Confirm against the
+   entity source, Context7 (`/jmix-framework/jmix-context7`), or IDE symbol
+   search — see `jmix-verify-api-symbol`.
+2. **Static inspection (Gate 1).** Run `jmix-ide-static-analysis`
+   (get_file_problems) on the view/fragment XML — the Jmix-XSD-aware
+   inspection flags an invalid property path inside a `<fetchPlan>` that the
+   compiler ignores.
+3. **Run the load path (Gate 2).** Exercise the smallest test or view that
+   reads the references; only this catches an attribute that is mapped but
+   never fetched.
 
 ## Forbidden
 

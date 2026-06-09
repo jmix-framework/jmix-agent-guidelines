@@ -56,6 +56,77 @@ public class Customer {
 }
 ```
 
+## Required-field defaults — at the ENTITY layer, not elsewhere
+
+When a required field "defaults to X" or is "auto-set on create/update"
+(e.g. "default now()", "auto-set", "defaults to 0"), the default MUST
+apply at the entity layer so a bare `DataManager.create()` +
+`DataManager.save()` succeeds with the caller never touching the field.
+This is the contract: programmatic paths (services, REST, tests) bypass
+the UI, so a default that lives only in the view is no default at all.
+
+Three patterns, in order of preference:
+
+**Constant default — field initializer**
+
+```java
+@Column(name = "QUANTITY", nullable = false)
+@NotNull
+private Integer quantity = 0;
+```
+
+**Initial default at creation — `@PostConstruct`**
+
+`@PostConstruct` fires when Jmix instantiates the entity
+(`DataManager.create()`, `Metadata.create()`, `DataContext.create()`),
+before the caller sets any field. Works for both JPA entities and DTOs.
+
+```java
+@Column(name = "CREATED_AT", nullable = false)
+@NotNull
+private LocalDateTime createdAt;
+
+@PostConstruct
+public void postConstruct() {
+    createdAt = LocalDateTime.now();
+}
+```
+
+Imports (Spring Boot 3 uses `jakarta.*`, never `javax.*`): `@PostConstruct` from `jakarta.annotation`; `@NotNull` / `@Email` from `jakarta.validation.constraints`.
+
+**Auto-set on every save — `EntitySavingEvent` listener** (for
+`lastUpdated`-style fields that must touch on UPDATE too, or for any
+cross-entity defaulting):
+
+```java
+import io.jmix.core.event.EntitySavingEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class CustomerSavingListener {
+
+    @EventListener
+    public void onSaving(EntitySavingEvent<Customer> event) {
+        event.getEntity().setLastUpdated(LocalDateTime.now());
+    }
+}
+```
+
+`EntitySavingEvent` fires before EVERY save (both insert and update),
+so the listener covers initial and subsequent timestamps in one place.
+`Customer` must declare the `lastUpdated` field; for the full event-listener
+pattern see `jmix-add-entity-event-listener`.
+
+### Anti-patterns that look right and break tests
+
+| Wrong placement                                    | Why it fails                                   |
+|----------------------------------------------------|------------------------------------------------|
+| Default set only in the detail view's `InitEntityEvent` | Non-UI saves bypass the view; `DataManager.save()` hits the `@NotNull` violation. |
+| Default set only in a service mutator that runs on UPDATE | The initial INSERT has no default; `@NotNull` fails. And a test calling `DataManager` directly never enters the service. |
+| Default set in an `EntityChangedEvent` listener    | The listener fires AFTER persist — too late for `@NotNull`. It reacts to saves; it does not default them. |
+| Default set only in the calling UI controller      | Programmatic paths (services, REST, tests) bypass it. |
+
 ## Composition Checklist
 
 For parent-child aggregates:
@@ -65,8 +136,8 @@ For parent-child aggregates:
 - Child has a non-null back reference to parent.
 - Child `@ManyToOne` uses `fetch = FetchType.LAZY` and `optional = false`.
 - Child join column is `nullable = false`.
-- Parent detail view supports editing the child collection.
-- Child detail view and role policy exist if the UI opens the child in a dialog.
+- Parent detail view edits the child collection via a property-bound `<collection property=...>` (no loader/query), and the parent fetchPlan includes the child property.
+- The child's own detail view exists, plus its role policy, when the UI opens the child in a dialog.
 
 ```java
 import io.jmix.core.DeletePolicy;
@@ -79,23 +150,32 @@ import jakarta.persistence.OneToMany;
 
 @Composition
 @OnDelete(DeletePolicy.CASCADE)
-@OneToMany(mappedBy = "order")
-private List<OrderLine> lines;
+@OneToMany(mappedBy = "parent")
+private List<ChildLine> lines;  // leave uninitialized — Jmix returns a NotInstantiatedList
 
-@JoinColumn(name = "ORDER_ID", nullable = false)
+@JoinColumn(name = "PARENT_ID", nullable = false)
 @ManyToOne(fetch = FetchType.LAZY, optional = false)
-private Order order;
+private Parent parent;
 ```
 
-## Default Values
+## Auditing and Soft Delete
 
-- If a required value can be created from UI and non-UI code, do not rely on the view alone.
-- Use a service method, entity saving event, or other application lifecycle path that covers non-UI saves.
-- Use `InitEntityEvent` only for UI-only defaults.
+Add audit fields with the Spring Data annotations from `org.springframework.data.annotation`: `@CreatedBy`, `@CreatedDate`, `@LastModifiedBy`, `@LastModifiedDate`. For soft delete add `@DeletedBy` and `@DeletedDate` from `io.jmix.core.annotation` — soft-deleted rows are then auto-filtered out of `DataManager`/JPQL queries.
+
+## Calculated and Transient Properties
+
+Non-persistent derived attributes use `@JmixProperty` + `@Transient` + `@DependsOnProperties({"a", "b"})` (`@JmixProperty` from `io.jmix.core.metamodel.annotation`). The same applies to an `@InstanceName` method: it must carry `@DependsOnProperties` listing every attribute it reads so they are fetched.
+
+## Embeddable, Inheritance, and Data Stores
+
+- `@Embeddable` value objects (still annotated `@JmixEntity`) are supported, as are JPA inheritance strategies (`@Inheritance` with `JOINED`, `SINGLE_TABLE`, or `TABLE_PER_CLASS`).
+- For a non-default data store, annotate the entity with `@Store(name = "...")` (defined in `application.properties`); add-on entities use an entity-name prefix, e.g. `@Entity(name = "app_Customer")`.
 
 ## Constraint Audit
 
-Check Java annotations and Liquibase side by side:
+`compileJava` does not build the schema — Liquibase does — so Java/DDL
+drift is silent. Check Java annotations and the Liquibase changelog side
+by side:
 
 - `nullable` / `@NotNull`
 - `length`
@@ -118,7 +198,10 @@ Apply common Java validation and persistence mappings when the field semantics a
 
 - Missing `@JmixEntity`.
 - Constructor-based entity creation.
+- Lombok annotations (`@Data`, `@Getter`, `@Setter`, etc.) on Jmix entities — they interfere with the entity enhancer and break JPA/Jmix metadata.
 - `FetchType.EAGER`.
 - Missing Liquibase changelog for persistent changes.
 - Nullable child back references in composition aggregates.
 - Relying only on UI initialization for required persistence fields.
+- Instantiating or replacing a collection field that Jmix populated — it may be a `NotInstantiatedList`/`NotInstantiatedSet`. Leave collection fields uninitialized; do not assign `new ArrayList`/`new HashSet`.
+- A 0-byte `.java` — it passes compile and the clean test boot, but breaks the registry. Confirm every file you wrote is non-empty.

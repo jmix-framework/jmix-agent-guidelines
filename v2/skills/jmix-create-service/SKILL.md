@@ -50,6 +50,8 @@ public class AccountService {
 }
 ```
 
+Consume the instance RETURNED by `dataManager.save(...)`: the pre-save argument is stale (no generated id/version), while `save(...)` returns the fresh managed copy. A missing transaction boundary and using the stale argument are both compile- and render-clean defects.
+
 ## DataManager Loading
 
 ```java
@@ -62,6 +64,11 @@ List<Customer> activeCustomers = dataManager.load(Customer.class)
         .list();
 ```
 
+## Gotchas
+
+- New vs detached: a null id does not mean "new" (ids can be generated early). Use `io.jmix.core.EntityStates#isNew(entity)`.
+- `DataManager` does more than `load`/`save`: `loadValues()` for scalar/aggregate data, the Condition API (`PropertyCondition` / `LogicalCondition`) as a JPQL alternative, pessimistic `lockMode()`, and hard delete by setting the `PersistenceHints.SOFT_DELETION` hint to `false` (e.g. `saveContext.setHint(PersistenceHints.SOFT_DELETION, false)`).
+
 ## Forbidden
 
 - Business logic in view controllers.
@@ -69,3 +76,7 @@ List<Customer> activeCustomers = dataManager.load(Customer.class)
 - Constructor calls for Jmix entities.
 - `EntityManager` for regular CRUD.
 - Missing transaction boundary for multi-step updates that must be atomic.
+
+## Verify
+
+Verify any unfamiliar Jmix/Vaadin symbol before typing it (`jmix-verify-api-symbol`), then run the gates after writing the service: static checks (`jmix-ide-static-analysis`) and the context-load test (`jmix-verify-bootrun`).

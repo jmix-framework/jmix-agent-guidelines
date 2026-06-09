@@ -73,6 +73,8 @@ private MessageBundle messageBundle;
 String text = messageBundle.getMessage("createOrderButton.text");
 ```
 
+For localized entity/attribute captions (not bundle-key formatting), inject `io.jmix.core.MessageTools` and `Metadata`: `messageTools.getEntityCaption(metadata.getClass(Customer.class))` and `messageTools.getPropertyCaption(metadata.getClass(Customer.class), "name")`.
+
 ## Exact Reference Audit
 
 Before finishing, search changed XML and Java for message references and verify the keys exist in the correct bundle with identical casing.

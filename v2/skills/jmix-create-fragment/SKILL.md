@@ -16,8 +16,8 @@ Use this skill when UI code should be reusable inside one or more views or fragm
 5. Create the XML descriptor with the fragment namespace and a required `<content>` root.
 6. Make the XML root component match the controller generic type.
 7. Add `<data>` only for data the fragment owns, or mark host-owned containers/loaders with `provided="true"`.
-8. Add fragment facets only after verifying that the project's fragment XML schema supports `<facets>`.
-9. Give fragment instances an `id` when a facet requires stable state.
+8. Use a `<facets>` block when needed (Jmix 2.8+): `fragmentDataLoadCoordinator` to auto-load the fragment's loaders, plus `fragmentSettings` / `urlQueryParameters` / `timer`. Otherwise load the loaders yourself (`getFragmentData().loadAll()` in a `ReadyEvent` handler).
+9. Give an embedded fragment instance a stable `id` when a facet (e.g. `fragmentSettings`) must persist state.
 10. Pass parameters through public setters; use XML `<properties>` or call setters before adding the fragment.
 11. Add message keys for user-visible labels, captions, and action text.
 12. Compile the host view and fragment together.
@@ -84,9 +84,9 @@ If the fragment subscribes to host events, create and add it before that host ev
 
 ## Fragment Facets
 
-Fragment facets are available only in Jmix 2 projects whose fragment descriptor schema supports a `<facets>` element. Check existing fragment XML, the project XSD, or the project docs before using them.
-
-If supported, use fragment-specific facet names:
+Since Jmix 2.8, a fragment descriptor supports a `<facets>` element with
+FRAGMENT-specific facet names (NOT the view ones): `fragmentDataLoadCoordinator`,
+`fragmentSettings`, `urlQueryParameters`, and `timer`.
 
 ```xml
 <facets>
@@ -94,9 +94,12 @@ If supported, use fragment-specific facet names:
 </facets>
 ```
 
-Do not also call `getFragmentData().loadAll()` for the same loaders when `fragmentDataLoadCoordinator` already loads them. If the project does not support fragment facets, keep the fragment data load in the controller or in the host view.
-
-Fragment facets that store state need a stable fragment instance id. Prefer declarative embedding with an `id`; for programmatic embedding, use the id-aware `Fragments` creation pattern only when that overload exists in the project.
+`fragmentDataLoadCoordinator auto="true"` loads the fragment's own `<data>`
+loaders; do NOT also call `getFragmentData().loadAll()` for the same loaders.
+Without the facet, load them yourself in a `ReadyEvent` handler, or let the host
+view load `provided="true"` containers. A facet that persists state
+(`fragmentSettings`) needs a stable fragment instance `id` — prefer declarative
+embedding with an `id`.
 
 ## Provided Data Components
 
@@ -121,15 +124,36 @@ The host view or enclosing fragment must declare a data component with the same 
 
 Use a fragment renderer only when a grid/list cell needs reusable UI more complex than a simple renderer. Keep renderer fragments read-only unless the workflow explicitly supports editing from the cell.
 
+## Verify — fragment wiring fails at view init, not compile
+
+A fragment whose XML root does not match the `Fragment<...>` generic type, a
+`provided="true"` container with no matching host id, or a VIEW facet name used
+inside the fragment (`dataLoadCoordinator` instead of `fragmentDataLoadCoordinator`)
+all compile clean and then throw `GuiDevelopmentException` (or a load failure)
+when the host view opens.
+
+1. **API symbols — verify before you type them.** `Fragment`,
+   `@FragmentDescriptor`, the `Fragments.create(...)` overload you use, and the
+   FRAGMENT facet names (`fragmentDataLoadCoordinator` not `dataLoadCoordinator`,
+   `fragmentSettings` not `settings`) must exist in this project. Confirm via
+   Context7 (`/jmix-framework/jmix-context7`), IDE symbol search, or an existing
+   fragment in `src/` — see `jmix-verify-api-symbol`.
+2. **Static inspection (Gate 1).** Run `jmix-ide-static-analysis`
+   (get_file_problems) on the fragment descriptor and the host view — the
+   Jmix-XSD-aware inspection flags a VIEW facet name used in a fragment, an
+   unknown component, or a `provided` container with no host counterpart that the
+   compiler ignores.
+3. **Open the host (Gate 2).** Compile the host and fragment together, then run
+   the test/view that embeds the fragment; root-type and provided-data
+   mismatches only surface when the host initializes.
+
 ## Forbidden
 
 - Fragment controller without matching XML descriptor.
 - XML root component different from `Fragment<...>` generic type.
 - One-off view layout extracted into a fragment without reuse or isolation benefit.
 - `provided="true"` without a same-id host data component.
-- Fragment facets in projects whose fragment XML schema does not support `<facets>`.
-- `dataLoadCoordinator` in fragments when fragment facets are supported; use `fragmentDataLoadCoordinator`.
-- `settings` in fragments when fragment facets are supported; use `fragmentSettings`.
+- The VIEW facet names `dataLoadCoordinator` / `settings` inside a fragment — use `fragmentDataLoadCoordinator` / `fragmentSettings` (Jmix 2.8+).
 - `urlQueryParameters` entries referencing components that are not declared in the fragment.
 - Hardcoded user-visible labels.
 - Using `UiComponentUtils` to find inner fragment components by Vaadin ids.

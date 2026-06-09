@@ -67,7 +67,9 @@ Do not add `@JmixEntity` just because a class is called DTO.
 For a DTO collection shown in a view, use a collection container and load it explicitly from a service or load delegate:
 
 ```xml
-<collection id="customerSummariesDc" class="com.company.app.entity.CustomerSummary"/>
+<collection id="customerSummariesDc" class="com.company.app.entity.CustomerSummary">
+    <loader id="customerSummariesDl" readOnly="true"/>
+</collection>
 ```
 
 ```java
@@ -82,6 +84,26 @@ private List<CustomerSummary> customerSummariesDlLoadDelegate(LoadContext<Custom
 Use `@Store(name = "...")` only when a real custom data store exists and the DTO should support generic CRUD through `DataManager`.
 
 If the task only needs a calculated grid or API response, prefer a service-returned DTO list instead of inventing a store.
+
+## Verify — binding errors surface at view init, not compile
+
+A DTO whose UI-bound attribute is not a real `@JmixProperty`, or a data
+container whose `class` points at the wrong type, compiles clean and then
+fails when the view initializes / renders.
+
+1. **Annotations and packages — verify before you type them.** `@JmixId`,
+   `@JmixGeneratedValue` come from `io.jmix.core.entity.annotation`;
+   `@JmixEntity`, `@InstanceName`, `@JmixProperty` from
+   `io.jmix.core.metamodel.annotation`. Confirm the package and members of any
+   annotation new to the project via Context7 (`/jmix-framework/jmix-context7`)
+   or IDE symbol search — see `jmix-verify-api-symbol`.
+2. **Static inspection (Gate 1).** Run `jmix-ide-static-analysis`
+   (get_file_problems) on the view XML that binds the DTO container — it flags
+   a container `class` or property path that does not resolve, which the
+   compiler never checks.
+3. **Instantiate through metadata.** Use `Metadata.create()` /
+   `DataManager.create()` for UI-bound DTO entities with generated ids — a
+   constructor leaves the id null and the instance outside Jmix metadata.
 
 ## Forbidden
 
