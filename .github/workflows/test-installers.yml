@@ -1,0 +1,96 @@
+name: Test installers
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'install.sh'
+      - 'install.ps1'
+      - 'tests/**'
+      - '.github/workflows/test-installers.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - 'install.ps1'
+      - 'tests/**'
+      - '.github/workflows/test-installers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-installers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bash syntax
+        run: |
+          bash -n install.sh
+          bash -n tests/test_install_sh.sh
+          bash -n tests/test_playwright.sh
+
+      - name: ShellCheck
+        run: |
+          shellcheck --version
+          # Print all findings (warnings included) for visibility, then gate on errors only.
+          shellcheck install.sh tests/test_install_sh.sh tests/test_playwright.sh || true
+          shellcheck -S error install.sh tests/test_install_sh.sh tests/test_playwright.sh
+
+      - name: PowerShell parse + analyze
+        shell: pwsh
+        run: |
+          $files = @('./install.ps1', './tests/test_install_ps1.ps1')
+          foreach ($f in $files) {
+              $parseErrors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f).Path, [ref]$null, [ref]$parseErrors)
+              if ($parseErrors) {
+                  $parseErrors | ForEach-Object { Write-Host "PARSE: $($_.Message)" }
+                  throw "$f has parse errors"
+              }
+              Write-Host "$f parses cleanly"
+          }
+          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          $findings = Invoke-ScriptAnalyzer -Path $files
+          if ($findings) { $findings | Format-Table -AutoSize | Out-String | Write-Host }
+          $errors = @($findings | Where-Object Severity -eq 'Error')
+          if ($errors.Count -gt 0) { throw "PSScriptAnalyzer found $($errors.Count) error(s)" }
+          Write-Host 'PSScriptAnalyzer: no errors'
+
+  test-bash:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run install.sh functional tests
+        run: bash tests/test_install_sh.sh "$GITHUB_WORKSPACE"
+
+  test-pwsh:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run install.ps1 functional tests
+        shell: pwsh
+        run: ./tests/test_install_ps1.ps1 -Source $env:GITHUB_WORKSPACE
+
+  test-playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Playwright install test
+        run: bash tests/test_playwright.sh "$GITHUB_WORKSPACE"

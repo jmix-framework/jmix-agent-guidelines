@@ -6,6 +6,7 @@
 #   2. Adding project-level guidelines (CLAUDE.md / AGENTS.md / .junie/guidelines.md).
 #   3. Registering the JetBrains MCP server with the agent.
 #   4. Registering the Context7 MCP server with the agent.
+#   5. Installing Playwright testing skills (requires npx).
 #
 # Subcommands are available for non-interactive use; see `install.sh --help`.
 
@@ -27,6 +28,7 @@ TARBALL_READY=0
 
 VERSION=""
 REF="main"
+SOURCE_DIR=""
 BACKUP_EXISTING=0
 VERBOSE=0
 
@@ -199,7 +201,7 @@ Jmix AI Agents Toolkit installer.
 
 Usage:
   install.sh [--version V] [--ref REF]                           # interactive wizard
-  install.sh skills        [--agents CSV] [--scope global|local]   # install skills into the canonical store and symlink agent dirs
+  install.sh skills        --agents CSV [--scope global|local]   # install skills into the canonical store and symlink agent dirs
   install.sh agents-md     [options]                             # install project guidelines
   install.sh mcp-jetbrains [options]                             # register JetBrains MCP
   install.sh mcp-context7  [options] [--context7-key KEY]        # register Context7 MCP
@@ -210,6 +212,9 @@ Common options:
                              folder is picked: exact -> major.minor -> major ->
                              latest.
   --ref REF                  Git ref to download (default: main).
+  --source DIR               Install from a local checkout of this repository
+                             instead of downloading. Skips the network and
+                             overrides --ref. Mainly for CI and offline use.
   --agents CSV               Comma-separated agent list. Accepts a single value
                              too (e.g. "claude" or "claude,codex"). Required by
                              every subcommand. Valid values:
@@ -314,34 +319,42 @@ resolve_skills_dir() {
 ensure_tarball() {
     [ "$TARBALL_READY" -eq 1 ] && return 0
 
-    require_tool curl
-    require_tool tar
+    if [ -n "$SOURCE_DIR" ]; then
+        # Install from a local checkout instead of downloading. Skips the network
+        # entirely and overrides --ref. Used by CI and offline installs.
+        [ -d "$SOURCE_DIR" ] || die "source directory not found: ${SOURCE_DIR}"
+        EXTRACTED_DIR="$(cd "$SOURCE_DIR" && pwd -P)"
+        vlog "using local source dir: ${EXTRACTED_DIR} (download skipped)"
+    else
+        require_tool curl
+        require_tool tar
 
-    STAGING="$(mktemp -d 2>/dev/null || mktemp -d -t jmix-install)"
-    trap 'rm -rf "$STAGING"' INT TERM EXIT
+        STAGING="$(mktemp -d 2>/dev/null || mktemp -d -t jmix-install)"
+        trap 'rm -rf "$STAGING"' INT TERM EXIT
 
-    local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
-    local tarball_path="${STAGING}/source.tar.gz"
-    vlog "staging dir: ${STAGING}"
-    vlog "requested version: '${VERSION}', ref: '${REF}'"
+        local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
+        local tarball_path="${STAGING}/source.tar.gz"
+        vlog "staging dir: ${STAGING}"
+        vlog "requested version: '${VERSION}', ref: '${REF}'"
 
-    log "Downloading ${tarball_url}"
-    local http_status
-    http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
-    if [ "$http_status" != "200" ]; then
-        die "failed to download ${tarball_url} (HTTP ${http_status})"
+        log "Downloading ${tarball_url}"
+        local http_status
+        http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
+        if [ "$http_status" != "200" ]; then
+            die "failed to download ${tarball_url} (HTTP ${http_status})"
+        fi
+
+        tar -xzf "$tarball_path" -C "$STAGING"
+        EXTRACTED_DIR="$(find "$STAGING" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
+        [ -n "$EXTRACTED_DIR" ] || die "extracted source directory not found in ${STAGING}"
     fi
-
-    tar -xzf "$tarball_path" -C "$STAGING"
-    EXTRACTED_DIR="$(find "$STAGING" -maxdepth 1 -type d -name "${REPO_NAME}-*" | head -n 1)"
-    [ -n "$EXTRACTED_DIR" ] || die "extracted source directory not found in ${STAGING}"
 
     local resolve_status=0
     SOURCE_SKILLS_DIR="$(resolve_skills_dir "$EXTRACTED_DIR" "$VERSION")" || resolve_status=$?
     if [ "$resolve_status" -eq 1 ] || [ -z "$SOURCE_SKILLS_DIR" ]; then
         local available
         available="$(find "$EXTRACTED_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | tr '\n' ' ')"
-        die "no v*/skills directory found in ${REF}. Available top-level entries: ${available}"
+        die "no v*/skills directory found in ${SOURCE_DIR:-$REF}. Available top-level entries: ${available}"
     fi
 
     RESOLVED_VERSION_DIR="$(basename "$(dirname "$SOURCE_SKILLS_DIR")")"
@@ -454,7 +467,7 @@ link_skills_into_dir() {
 
 agent_label() {
     case "$1" in
-        claude)   printf 'Claude Code' ;;
+        claude)   printf 'Claude CLI' ;;
         codex)    printf 'Codex' ;;
         opencode) printf 'OpenCode' ;;
         junie)    printf 'Junie' ;;
@@ -485,6 +498,9 @@ cmd_skills() {
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
                 REF="$2"; shift 2 ;;
+            --source)
+                [ $# -ge 2 ] || die "--source requires an argument"
+                SOURCE_DIR="$2"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
@@ -589,6 +605,9 @@ cmd_agents_md() {
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
                 REF="$2"; shift 2 ;;
+            --source)
+                [ $# -ge 2 ] || die "--source requires an argument"
+                SOURCE_DIR="$2"; shift 2 ;;
             -h|--help) usage; exit 0 ;;
             *) die "unknown argument: $1" ;;
         esac
@@ -612,7 +631,7 @@ cmd_agents_md() {
 
 mcp_jetbrains_for_claude() {
     require_tool claude
-    log "Adding JetBrains MCP for Claude Code..."
+    log "Adding JetBrains MCP for Claude CLI..."
     claude mcp add --transport sse jetbrains --scope user http://localhost:64342/sse
 }
 
@@ -703,7 +722,7 @@ cmd_mcp_jetbrains() {
 mcp_context7_for_claude() {
     local key="$1"
     require_tool claude
-    log "Adding Context7 MCP for Claude Code..."
+    log "Adding Context7 MCP for Claude CLI..."
     claude mcp add context7 --scope user -- npx -y @upstash/context7-mcp --api-key "$key"
 }
 
@@ -952,6 +971,9 @@ cmd_wizard() {
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
                 REF="$2"; shift 2 ;;
+            --source)
+                [ $# -ge 2 ] || die "--source requires an argument"
+                SOURCE_DIR="$2"; shift 2 ;;
             --backup-existing-files)
                 BACKUP_EXISTING=1; shift ;;
             -h|--help) usage; exit 0 ;;
@@ -1040,10 +1062,17 @@ cmd_wizard() {
     # Step 5: Playwright
     sel="$(wizard_pick_agent skip '[5/5] Install Playwright? (requires npx)' "$ALL_AGENTS")"
     if [ "$sel" != "skip" ]; then
-        local pw_csv
-        pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
-        cmd_playwright --agents "$pw_csv" || true
-        summary_playwright="$sel"
+        if ! command -v npx >/dev/null 2>&1; then
+            # Pre-check npx so the wizard skips gracefully. cmd_playwright -> require_npx
+            # would otherwise `exit 1` (not catchable by `|| true`) and abort the summary.
+            log "Skipping Playwright: npx (Node.js) not found on PATH."
+            summary_playwright="skipped (no npx)"
+        else
+            local pw_csv
+            pw_csv="$(printf '%s' "$sel" | tr ' ' ',' | sed 's/^,//;s/,$//')"
+            cmd_playwright --agents "$pw_csv" || true
+            summary_playwright="$sel"
+        fi
     fi
 
     log ""

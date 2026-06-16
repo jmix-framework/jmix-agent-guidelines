@@ -15,7 +15,7 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 ## Quick Install
 
 A single command launches an interactive wizard that walks through every setup step: 
-installing skills, adding guidelines registering the recommended MCP servers.
+installing skills, adding guidelines, registering the recommended MCP servers, and setting up Playwright testing.
 
 **macOS / Linux:**
 
@@ -66,6 +66,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 |:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                                                                                            |
 | `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                                                                                       |
+| `--source DIR`            | `-Source DIR`          | -       | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                              |
 | `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
 | `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
 | `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                                                                                        |
@@ -73,7 +74,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
 
 **Skills storages:**
-- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude Code), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
+- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude CLI), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
 - **Local:** store at `<project>/.skills/`; each `jmix-*` folder symlinked into `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
 
 > The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step runs `@playwright/cli` via `npx`, so `npx` (Node.js) must be available on PATH.
@@ -86,7 +87,7 @@ If you prefer not to run the script, follow these steps. Take the files from the
 
 Copy the `AGENTS.md` file from this repository to the root of your Jmix application project. Depending on the agent you are using, you may need to rename it or place it in a specific folder:
 
-- [Claude Code](https://code.claude.com/docs): Copy to the project root and rename to `CLAUDE.md`.
+- [Claude CLI](https://code.claude.com/docs): Copy to the project root and rename to `CLAUDE.md`.
 - [Codex](https://developers.openai.com/codex/cli): Copy to the project root and keep as `AGENTS.md`.
 - [OpenCode](https://opencode.ai/docs): Copy to the project root and keep as `AGENTS.md`.
 - [Junie](https://www.jetbrains.com/junie): Copy to the `.junie` project subdirectory and rename to `guidelines.md`.
@@ -95,33 +96,37 @@ Copy the `AGENTS.md` file from this repository to the root of your Jmix applicat
 
 The `skills/` directory contains specialized knowledge for developing various Jmix features (entities, UI views, data access, etc.). These should be made available to the agent globally or per-project.
 
-Before installing the skills, remove previous versions of the skills from the agent's project or user home directory.
+Each skill must sit **directly** inside the agent's skills folder (e.g. `~/.claude/skills/jmix-create-entity/`) — agents do not scan nested subfolders, so the skills must be linked **individually**. Do not symlink the whole `skills/` directory as a single entry, and note that the folder normally holds other (non-Jmix) skills that must be left in place.
 
-Copy or symlink the content of the `skills/` subdirectory to the folder recognized by your agent in your project or user home directory:
+Copy or symlink each folder from `skills/` into the folder recognized by your agent in your project or user home directory:
 
 | Agent       | Project Skills Folder Path | Global Skills Folder Path    |
 |:------------|:---------------------------|:-----------------------------|
-| Claude Code | `.claude/skills/`          | `~/.claude/skills/`          |
+| Claude CLI | `.claude/skills/`          | `~/.claude/skills/`          |
 | Codex       | `.agents/skills/`          | `~/.agents/skills/`          |
 | OpenCode    | `.agents/skills/`          | `~/.agents/skills/`          |
 | Junie       | `.junie/skills`            | `~/.junie/skills/`           |
 
 #### Example
 
-Using symlink for Claude Code:
+Symlink each skill individually. This is idempotent — re-run it after pulling new skills, and it leaves any non-Jmix skills in the folder untouched:
 ```bash
 mkdir -p ~/.claude/skills
-ln -s /path/to/jmix-agent-guidelines/v2/skills/* ~/.claude/skills/
+for skill in /path/to/jmix-agent-guidelines/v2/skills/*/; do
+    ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
+done
 ```
+
+`ln -sfn` refreshes an existing link in place, so re-running picks up newly added skills without disturbing the rest of the folder. To copy instead of symlinking (so the skills survive deleting this clone), replace the `ln -sfn` line with `cp -R "$skill" ~/.claude/skills/`.
 
 #### Agent Conventions Summary
 
-| Agent       | Project Guidelines     | Home Directory Base   |
-|:------------|:-----------------------|:----------------------|
-| Claude Code | `CLAUDE.md`            | `~/.claude/`          |
-| Codex       | `AGENTS.md`            | `~/.codex/`           |
-| OpenCode    | `AGENTS.md`            | `~/.config/opencode/` |
-| Junie       | `.junie/guidelines.md` | `~/.junie/`           |
+| Agent      | Project Guidelines     | Home Directory Base   |
+|:-----------|:-----------------------|:----------------------|
+| Claude CLI | `CLAUDE.md`            | `~/.claude/`          |
+| Codex      | `AGENTS.md`            | `~/.codex/`           |
+| OpenCode   | `AGENTS.md`            | `~/.config/opencode/` |
+| Junie      | `.junie/guidelines.md` | `~/.junie/`           |
 
 ### 3. MCP Servers
 
@@ -131,11 +136,11 @@ The following two MCP servers help AI agents to build Jmix apps:
 
 - Context7 (optional): gives the agent docs and code examples from official sources.
 
-To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server** and select **Enable MCP Server ✓**. When working with  a project, keep it open in the IDE.
+To run the JetBrains MCP server in IntelliJ IDEA, go to **Settings → Tools → MCP Server** and select **Enable MCP Server ✓**. When working with a project, keep it open in the IDE.
 
 Below are practical setup snippets per agent.
 
-#### Claude Code
+#### Claude CLI
 
 - JetBrains MCP:
     ```bash
@@ -242,7 +247,7 @@ To enable Playwright support:
     ```bash
     playwright-cli install --skills
     ```
-    The command above creates Playwright skills in the `~/.claude/skills` directory. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
+    The command above creates Playwright skills in the `.claude/skills` directory of the current working directory. Run it from your home directory to install them globally into `~/.claude/skills`. If you are using a different agent, copy or symlink them to the directory supported by your agent (see [Agent Skills](#2-agent-skills) section).
 
 Once set up, you can give the agent instructions like:
 

@@ -1,0 +1,143 @@
+#!/usr/bin/env pwsh
+# Functional tests for install.ps1.
+#
+# Runs the installer's subcommands against a local checkout (via -Source) into
+# an isolated temp HOME and project dir, then asserts the produced files and
+# symlinks. No network and no external agent CLIs required.
+#
+# Every installer invocation runs in a child pwsh process whose HOME is
+# redirected into the temp dir, so the real user profile is never touched and
+# the installer's `exit` on error paths cannot abort this harness.
+#
+# Skills assertions are skipped automatically when the session cannot create
+# symbolic links (e.g. a Windows runner without Developer Mode / admin).
+#
+# Usage: pwsh tests/test_install_ps1.ps1 [-Source <dir>]
+#   -Source defaults to the repository root (parent of this script's dir).
+
+[CmdletBinding()]
+param([string]$Source = '')
+
+$ErrorActionPreference = 'Stop'
+
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $Source) { $Source = (Resolve-Path (Join-Path $scriptDir '..')).Path }
+$install = Join-Path $Source 'install.ps1'
+if (-not (Test-Path $install)) { Write-Host "FAIL: install.ps1 not found at $install"; exit 1 }
+
+$skill = 'jmix-create-entity'   # a stable skill folder name used for symlink checks
+
+$work    = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-itest-" + [guid]::NewGuid().ToString('N'))
+$homeDir = Join-Path $work 'home'
+$proj    = Join-Path $work 'project'
+New-Item -ItemType Directory -Force -Path $homeDir, $proj | Out-Null
+
+# Redirect HOME for the child installer processes. $HOME is read-only in-process,
+# so isolation is done via the environment that child processes inherit:
+#   - Unix:    $HOME derives from $env:HOME
+#   - Windows: $HOME derives from $env:HOMEDRIVE + $env:HOMEPATH
+$env:HOME = $homeDir
+$onWindows = ($IsWindows -eq $true) -or ($null -eq $IsWindows)   # $IsWindows is $null on Windows PowerShell 5.1
+if ($onWindows) {
+    $root = [System.IO.Path]::GetPathRoot($homeDir)
+    $env:HOMEDRIVE   = $root.TrimEnd('\')
+    $env:HOMEPATH    = $homeDir.Substring($env:HOMEDRIVE.Length)
+    $env:USERPROFILE = $homeDir
+}
+Set-Location $proj
+
+$script:failed = $false
+function Check {
+    param([bool]$Condition, [string]$Message)
+    if ($Condition) { Write-Host "ok: $Message" }
+    else { Write-Host "FAIL: $Message"; $script:failed = $true }
+}
+
+# Probe symbolic-link capability the same way install.ps1 does.
+function Test-SymlinkCapable {
+    $p = Join-Path ([System.IO.Path]::GetTempPath()) ("slp-" + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $p -Force | Out-Null
+    try {
+        New-Item -ItemType SymbolicLink -Path (Join-Path $p 'l') -Target $p -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        return $false
+    } finally {
+        Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+$pwshPath = (Get-Process -Id $PID).Path
+# Run install.ps1 in a child process; return its exit code (output discarded).
+function Invoke-Installer {
+    param([string[]]$InstallerArgs)
+    & $pwshPath -NoProfile -File $install @InstallerArgs *> $null
+    return $LASTEXITCODE
+}
+# Run install.ps1 in a child process; return combined stdout+stderr as a string.
+function Invoke-InstallerCapture {
+    param([string[]]$InstallerArgs)
+    return (& $pwshPath -NoProfile -File $install @InstallerArgs 2>&1 | Out-String)
+}
+
+# ---------------------------------------------------------------------------
+# 1. agents-md (project guidelines)
+# ---------------------------------------------------------------------------
+Check ((Invoke-Installer @('agents-md', '-Agents', 'claude,codex,opencode,junie', '-Source', $Source)) -eq 0) `
+    'agents-md exits 0'
+Check (Test-Path (Join-Path $proj 'CLAUDE.md'))            'agents-md: CLAUDE.md'
+Check (Test-Path (Join-Path $proj 'AGENTS.md'))            'agents-md: AGENTS.md'
+Check (Test-Path (Join-Path $proj '.junie/guidelines.md')) 'agents-md: .junie/guidelines.md'
+$claude = Get-Content -Raw (Join-Path $proj 'CLAUDE.md')
+$agents = Get-Content -Raw (Join-Path $Source 'v2/AGENTS.md')
+Check ($claude -eq $agents) 'agents-md: CLAUDE.md content matches v2/AGENTS.md'
+
+# ---------------------------------------------------------------------------
+# 2. skills, local scope (symlink-gated)
+# ---------------------------------------------------------------------------
+if (Test-SymlinkCapable) {
+    Check ((Invoke-Installer @('skills', '-Agents', 'claude,codex,opencode,junie', '-Scope', 'local', '-Source', $Source)) -eq 0) `
+        'skills(local) exits 0'
+    Check (Test-Path (Join-Path $proj '.skills'))                        'skills(local): .skills store'
+    Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(local): claude symlink resolves'
+    Check (Test-Path (Join-Path $proj ".agents/skills/$skill/SKILL.md")) 'skills(local): agents symlink resolves'
+    Check (Test-Path (Join-Path $proj ".junie/skills/$skill/SKILL.md"))  'skills(local): junie symlink resolves'
+
+    $out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
+    Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
+} else {
+    Write-Host 'skip: no symlink support in this session, skipping skills assertions'
+}
+
+# ---------------------------------------------------------------------------
+# 3. OpenCode MCP entries (no agent CLI needed)
+# ---------------------------------------------------------------------------
+Check ((Invoke-Installer @('mcp-jetbrains', '-Agents', 'opencode')) -eq 0) 'mcp-jetbrains exits 0'
+$cfg = Join-Path $homeDir '.config/opencode/opencode.json'
+Check (Test-Path $cfg) 'mcp: opencode.json created'
+$json = Get-Content -Raw $cfg | ConvertFrom-Json
+Check ($json.mcp.jetbrains.url -eq 'http://localhost:64342/sse') 'mcp-jetbrains: opencode url'
+
+Check ((Invoke-Installer @('mcp-context7', '-Agents', 'opencode', '-Context7Key', 'TESTKEY')) -eq 0) 'mcp-context7 exits 0'
+$json = Get-Content -Raw $cfg | ConvertFrom-Json
+Check ($json.mcp.context7.command -contains 'TESTKEY') 'mcp-context7: opencode key written'
+
+# ---------------------------------------------------------------------------
+# 4. Negative cases
+# ---------------------------------------------------------------------------
+Check ((Invoke-Installer @('agents-md', '-Source', $Source)) -ne 0) `
+    'negative: agents-md without -Agents fails'
+Check ((Invoke-Installer @('skills', '-Agents', 'bogus', '-Scope', 'local', '-Source', $Source)) -ne 0) `
+    'negative: unknown agent fails'
+Check ((Invoke-Installer @('agents-md', '-Agents', 'claude', '-Source', (Join-Path $work 'does-not-exist'))) -ne 0) `
+    'negative: missing -Source dir fails'
+
+Set-Location $scriptDir
+Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+
+Write-Host ''
+if ($script:failed) {
+    Write-Host 'POWERSHELL INSTALLER TESTS FAILED'
+    exit 1
+}
+Write-Host 'ALL POWERSHELL INSTALLER TESTS PASSED'

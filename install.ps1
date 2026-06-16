@@ -9,6 +9,7 @@
       2. Adding project-level guidelines (CLAUDE.md / AGENTS.md / .junie\guidelines.md).
       3. Registering the JetBrains MCP server with the agent.
       4. Registering the Context7 MCP server with the agent.
+      5. Installing Playwright testing skills (requires npx).
 
     Subcommands are available for non-interactive use:
       install.ps1 skills        -Agents CSV [-Scope global|local] [-Version V] [-Ref REF]
@@ -31,6 +32,10 @@
 
 .PARAMETER Ref
     Git ref (branch or tag) to download. Default: main.
+
+.PARAMETER Source
+    Install from a local checkout of this repository instead of downloading.
+    Skips the network and overrides -Ref. Mainly for CI and offline use.
 
 .PARAMETER Agents
     Comma-separated list of agents (e.g. "claude,codex"). Single value is also
@@ -62,6 +67,7 @@ param(
     [string]$Subcommand = '',
     [string]$Version = '',
     [string]$Ref = 'main',
+    [string]$Source = '',
     [string]$Agents = '',
     [string]$Scope = '',
     [string]$Context7Key = '',
@@ -213,7 +219,7 @@ function Read-YesNo {
 function Get-AgentLabel {
     param([string]$Agent)
     switch ($Agent) {
-        'claude'   { 'Claude Code' }
+        'claude'   { 'Claude CLI' }
         'codex'    { 'Codex' }
         'opencode' { 'OpenCode' }
         'junie'    { 'Junie' }
@@ -355,51 +361,61 @@ function Resolve-SkillsDir {
 function Initialize-Tarball {
     if ($script:TarballReady) { return }
 
-    if (-not (Get-Command Expand-Archive -ErrorAction SilentlyContinue)) {
-        Write-ErrAndExit 'Expand-Archive not found. PowerShell 5+ is required.'
-    }
+    if ($Source) {
+        # Install from a local checkout instead of downloading. Skips the network
+        # entirely and overrides -Ref. Used by CI and offline installs.
+        if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
+            Write-ErrAndExit "source directory not found: $Source"
+        }
+        $script:ExtractedDir = (Resolve-Path -LiteralPath $Source).Path
+        Write-Verbose "using local source dir: $($script:ExtractedDir) (download skipped)"
+    } else {
+        if (-not (Get-Command Expand-Archive -ErrorAction SilentlyContinue)) {
+            Write-ErrAndExit 'Expand-Archive not found. PowerShell 5+ is required.'
+        }
 
-    $script:Staging = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-install-" + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $script:Staging -Force | Out-Null
+        $script:Staging = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-install-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:Staging -Force | Out-Null
 
-    $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$Ref"
-    $zipPath    = Join-Path $script:Staging 'source.zip'
-    Write-Verbose "staging: $($script:Staging)"
-    Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$Ref'"
+        $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$Ref"
+        $zipPath    = Join-Path $script:Staging 'source.zip'
+        Write-Verbose "staging: $($script:Staging)"
+        Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$Ref'"
 
-    Write-Info "Downloading $archiveUrl"
-    $downloaded = $false
-    for ($attempt = 1; $attempt -le 3; $attempt++) {
-        try {
-            Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
-            $downloaded = $true
-            break
-        } catch {
-            $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
-            if ($attempt -lt 3) {
-                Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
-                Start-Sleep -Seconds 2
-            } else {
-                Write-ErrAndExit "failed to download $archiveUrl after $attempt attempts (HTTP $status)"
+        Write-Info "Downloading $archiveUrl"
+        $downloaded = $false
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+                Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
+                $downloaded = $true
+                break
+            } catch {
+                $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+                if ($attempt -lt 3) {
+                    Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
+                    Start-Sleep -Seconds 2
+                } else {
+                    Write-ErrAndExit "failed to download $archiveUrl after $attempt attempts (HTTP $status)"
+                }
             }
         }
-    }
-    if (-not $downloaded) { Write-ErrAndExit "failed to download $archiveUrl" }
+        if (-not $downloaded) { Write-ErrAndExit "failed to download $archiveUrl" }
 
-    Expand-Archive -Path $zipPath -DestinationPath $script:Staging -Force
+        Expand-Archive -Path $zipPath -DestinationPath $script:Staging -Force
 
-    $script:ExtractedDir = (Get-ChildItem -Path $script:Staging -Directory |
-        Where-Object { $_.Name -like "$($script:RepoName)-*" } |
-        Select-Object -First 1).FullName
+        $script:ExtractedDir = (Get-ChildItem -Path $script:Staging -Directory |
+            Where-Object { $_.Name -like "$($script:RepoName)-*" } |
+            Select-Object -First 1).FullName
 
-    if (-not $script:ExtractedDir) {
-        Write-ErrAndExit "extracted source directory not found in $($script:Staging)"
+        if (-not $script:ExtractedDir) {
+            Write-ErrAndExit "extracted source directory not found in $($script:Staging)"
+        }
     }
 
     $resolved = Resolve-SkillsDir -ExtractedDir $script:ExtractedDir -Requested $Version
     if ($resolved.Status -eq 'none' -or -not $resolved.Path) {
         $available = (Get-ChildItem -Path $script:ExtractedDir -Directory | Select-Object -ExpandProperty Name) -join ' '
-        Write-ErrAndExit "no v*/skills directory found in $Ref. Available top-level entries: $available"
+        Write-ErrAndExit "no v*/skills directory found in $(if ($Source) { $Source } else { $Ref }). Available top-level entries: $available"
     }
 
     $script:SourceSkillsDir = $resolved.Path
@@ -609,10 +625,13 @@ function Set-OpencodeMcpEntry {
     )
     $file = Get-OpencodeConfigPath
     $json = Get-Content -Raw -Path $file | ConvertFrom-Json -ErrorAction Stop
-    if (-not $json.PSObject.Properties.Match('mcp')) {
+    # NOTE: PSObject.Properties.Match() returns an always-truthy collection object,
+    # and `.Name` member-enumeration throws on an empty collection under StrictMode.
+    # The by-name indexer returns $null when the property is absent, which is safe.
+    if ($null -eq $json.PSObject.Properties['mcp']) {
         $json | Add-Member -MemberType NoteProperty -Name 'mcp' -Value (New-Object PSObject)
     }
-    if ($json.mcp.PSObject.Properties.Match($Name)) {
+    if ($null -ne $json.mcp.PSObject.Properties[$Name]) {
         $json.mcp.PSObject.Properties.Remove($Name)
     }
     $json.mcp | Add-Member -MemberType NoteProperty -Name $Name -Value ([PSCustomObject]$Entry)
@@ -622,8 +641,8 @@ function Set-OpencodeMcpEntry {
 }
 
 function Install-JetbrainsForClaude {
-    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude Code')) { return }
-    Write-Info 'Adding JetBrains MCP for Claude Code...'
+    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude CLI')) { return }
+    Write-Info 'Adding JetBrains MCP for Claude CLI...'
     & claude mcp add --transport sse jetbrains --scope user http://localhost:64342/sse
 }
 
@@ -672,8 +691,8 @@ function Invoke-CmdMcpJetbrains {
 
 function Install-Context7ForClaude {
     param([string]$Key)
-    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude Code')) { return }
-    Write-Info 'Adding Context7 MCP for Claude Code...'
+    if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude CLI')) { return }
+    Write-Info 'Adding Context7 MCP for Claude CLI...'
     & claude mcp add context7 --scope user -- npx -y '@upstash/context7-mcp' --api-key $Key
 }
 
