@@ -141,3 +141,6 @@ if ($script:failed) {
     exit 1
 }
 Write-Host 'ALL POWERSHELL INSTALLER TESTS PASSED'
+# Reset the exit code explicitly: the last child process above (a negative case)
+# leaves $LASTEXITCODE non-zero, and `shell: pwsh` exits with $LASTEXITCODE.
+exit 0

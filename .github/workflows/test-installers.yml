@@ -55,8 +55,13 @@ jobs:
               }
               Write-Host "$f parses cleanly"
           }
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
-          $findings = Invoke-ScriptAnalyzer -Path $files
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+              Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          }
+          Import-Module PSScriptAnalyzer
+          # -Path takes a single string on PSScriptAnalyzer 1.25.x (preinstalled on runners),
+          # so analyze each file in turn rather than passing the array.
+          $findings = foreach ($f in $files) { Invoke-ScriptAnalyzer -Path $f }
           if ($findings) { $findings | Format-Table -AutoSize | Out-String | Write-Host }
           $errors = @($findings | Where-Object Severity -eq 'Error')
           if ($errors.Count -gt 0) { throw "PSScriptAnalyzer found $($errors.Count) error(s)" }
