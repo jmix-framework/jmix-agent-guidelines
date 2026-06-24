@@ -623,10 +623,22 @@ function Set-OpencodeMcpEntry {
     Write-Info "Updated $file with $Name MCP entry."
 }
 
+# Registers a user-scope Claude MCP server idempotently. `claude mcp add` exits
+# non-zero and writes "already exists in user config" to stderr when the name is
+# already present, which Studio treats as a failed wizard step. Removing any
+# existing entry first -- silencing the harmless "not found" message and guarding
+# the non-zero exit -- makes a re-run succeed cleanly (exit 0, no stderr).
+# $AddArgs are the arguments that follow `claude mcp add`.
+function Add-ClaudeUserMcp {
+    param([string]$Name, [string[]]$AddArgs)
+    try { & claude mcp remove --scope user $Name 2>&1 | Out-Null } catch { }
+    & claude mcp add @AddArgs
+}
+
 function Install-JetbrainsForClaude {
     if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude CLI')) { return }
     Write-Info 'Adding JetBrains MCP for Claude CLI...'
-    & claude mcp add --transport sse jetbrains --scope user http://localhost:64342/sse
+    Add-ClaudeUserMcp -Name 'jetbrains' -AddArgs @('--transport', 'sse', 'jetbrains', '--scope', 'user', 'http://localhost:64342/sse')
 }
 
 function Install-JetbrainsForCodex {
@@ -676,7 +688,7 @@ function Install-Context7ForClaude {
     param([string]$Key)
     if (-not (Test-AgentCli -Tool 'claude' -Label 'Claude CLI')) { return }
     Write-Info 'Adding Context7 MCP for Claude CLI...'
-    & claude mcp add context7 --scope user -- npx -y '@upstash/context7-mcp' --api-key $Key
+    Add-ClaudeUserMcp -Name 'context7' -AddArgs @('context7', '--scope', 'user', '--', 'npx', '-y', '@upstash/context7-mcp', '--api-key', $Key)
 }
 
 function Install-Context7ForCodex {

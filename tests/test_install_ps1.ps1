@@ -123,6 +123,9 @@ $cfg = Join-Path $homeDir '.config/opencode/opencode.json'
 Check (Test-Path $cfg) 'mcp: opencode.json created'
 $json = Get-Content -Raw $cfg | ConvertFrom-Json
 Check ($json.mcp.jetbrains.url -eq 'http://localhost:64342/sse') 'mcp-jetbrains: opencode url'
+# Re-running an already-configured step must stay idempotent (exit 0, no error) --
+# the same guarantee the Claude path gets from its remove-then-add helper.
+Check ((Invoke-Installer @('mcp-jetbrains', '-Agents', 'opencode')) -eq 0) 'mcp-jetbrains: re-run idempotent'
 
 Check ((Invoke-Installer @('mcp-context7', '-Agents', 'opencode', '-Context7Key', 'TESTKEY')) -eq 0) 'mcp-context7 exits 0'
 $json = Get-Content -Raw $cfg | ConvertFrom-Json

@@ -629,10 +629,21 @@ cmd_agents_md() {
 # MCP install - JetBrains
 # =================================================================
 
+# Registers a user-scope Claude MCP server idempotently. `claude mcp add` exits
+# non-zero and writes "already exists in user config" to stderr when the name is
+# already present, which Studio treats as a failed wizard step. Removing any
+# existing entry first (discarding the harmless "not found" output) makes a re-run
+# succeed cleanly. Usage: add_claude_user_mcp <name> <args-after-"mcp add"...>
+add_claude_user_mcp() {
+    local name="$1"; shift
+    claude mcp remove --scope user "$name" >/dev/null 2>&1 || true
+    claude mcp add "$@"
+}
+
 mcp_jetbrains_for_claude() {
     require_tool claude
     log "Adding JetBrains MCP for Claude CLI..."
-    claude mcp add --transport sse jetbrains --scope user http://localhost:64342/sse
+    add_claude_user_mcp jetbrains --transport sse jetbrains --scope user http://localhost:64342/sse
 }
 
 mcp_jetbrains_for_codex() {
@@ -723,7 +734,7 @@ mcp_context7_for_claude() {
     local key="$1"
     require_tool claude
     log "Adding Context7 MCP for Claude CLI..."
-    claude mcp add context7 --scope user -- npx -y @upstash/context7-mcp --api-key "$key"
+    add_claude_user_mcp context7 context7 --scope user -- npx -y @upstash/context7-mcp --api-key "$key"
 }
 
 mcp_context7_for_codex() {

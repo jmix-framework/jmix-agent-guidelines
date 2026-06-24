@@ -80,6 +80,10 @@ if command -v jq >/dev/null 2>&1; then
     bash "$INSTALL" mcp-jetbrains --agents opencode >/dev/null
     jq -e '.mcp.jetbrains.url == "http://localhost:64342/sse"' "$cfg" >/dev/null \
         || fail "mcp-jetbrains: opencode jetbrains entry missing/wrong"
+    # Re-running an already-configured step must stay idempotent (exit 0) -- the
+    # same guarantee the Claude path gets from its remove-then-add helper.
+    bash "$INSTALL" mcp-jetbrains --agents opencode >/dev/null \
+        || fail "mcp-jetbrains: re-run not idempotent (non-zero exit)"
     bash "$INSTALL" mcp-context7 --agents opencode --context7-key TESTKEY >/dev/null
     jq -e '.mcp.context7.command | index("TESTKEY")' "$cfg" >/dev/null \
         || fail "mcp-context7: opencode context7 key not written"
