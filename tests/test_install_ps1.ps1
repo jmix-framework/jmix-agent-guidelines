@@ -112,6 +112,13 @@ if ($onWindows -and -not (Test-SymlinkCapable)) {
     Check ($linkItem.LinkType -eq 'Junction') 'skills(local): falls back to junction without symlink privilege'
 }
 
+# Re-running with identical args must complete -- this is the Windows hang scenario:
+# existing junctions are removed (via Directory.Delete, not a prompting Remove-Item)
+# before re-linking. Links must still resolve afterwards.
+Check ((Invoke-Installer @('skills', '-Agents', 'claude,codex,opencode,junie', '-Scope', 'local', '-Source', $Source)) -eq 0) `
+    'skills(local): re-run exits 0 (links already exist)'
+Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(local): claude link still resolves after re-run'
+
 $out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
 Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
 

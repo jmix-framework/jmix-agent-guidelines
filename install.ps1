@@ -442,7 +442,12 @@ function New-DirSymlink {
     if (Test-Path $Link) {
         $item = Get-Item $Link -Force
         if ($item.LinkType) {
-            Remove-Item $Link -Force
+            # Delete the reparse point itself, never the target. `Remove-Item -Force`
+            # without -Recurse prompts on Windows PowerShell 5.1 (the junction looks
+            # non-empty), which hangs a non-interactive (Studio) re-run; -Recurse would
+            # instead delete the target's contents. Directory.Delete(path, $false) does
+            # neither -- it unlinks the junction/symlink without prompting.
+            [System.IO.Directory]::Delete($Link, $false)
         } elseif ($BackupExistingFiles) {
             Rename-Item -Path $Link -NewName "$([System.IO.Path]::GetFileName($Link)).bak-$($script:Timestamp)"
         } else {
