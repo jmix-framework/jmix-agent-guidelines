@@ -9,8 +9,10 @@
 # redirected into the temp dir, so the real user profile is never touched and
 # the installer's `exit` on error paths cannot abort this harness.
 #
-# Skills assertions are skipped automatically when the session cannot create
-# symbolic links (e.g. a Windows runner without Developer Mode / admin).
+# Skills install succeeds without symlink privilege on Windows via a directory
+# junction (and via a symbolic link on Unix), so skills assertions run
+# unconditionally; on a Windows session without symlink privilege we additionally
+# assert the link is a junction.
 #
 # Usage: pwsh tests/test_install_ps1.ps1 [-Source <dir>]
 #   -Source defaults to the repository root (parent of this script's dir).
@@ -93,21 +95,25 @@ $agents = Get-Content -Raw (Join-Path $Source 'v2/AGENTS.md')
 Check ($claude -eq $agents) 'agents-md: CLAUDE.md content matches v2/AGENTS.md'
 
 # ---------------------------------------------------------------------------
-# 2. skills, local scope (symlink-gated)
+# 2. skills, local scope -- must succeed without symlink privilege
+#    (junction on Windows / symlink on Unix), so the assertions run unconditionally.
 # ---------------------------------------------------------------------------
-if (Test-SymlinkCapable) {
-    Check ((Invoke-Installer @('skills', '-Agents', 'claude,codex,opencode,junie', '-Scope', 'local', '-Source', $Source)) -eq 0) `
-        'skills(local) exits 0'
-    Check (Test-Path (Join-Path $proj '.skills'))                        'skills(local): .skills store'
-    Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(local): claude symlink resolves'
-    Check (Test-Path (Join-Path $proj ".agents/skills/$skill/SKILL.md")) 'skills(local): agents symlink resolves'
-    Check (Test-Path (Join-Path $proj ".junie/skills/$skill/SKILL.md"))  'skills(local): junie symlink resolves'
+Check ((Invoke-Installer @('skills', '-Agents', 'claude,codex,opencode,junie', '-Scope', 'local', '-Source', $Source)) -eq 0) `
+    'skills(local) exits 0'
+Check (Test-Path (Join-Path $proj '.skills'))                        'skills(local): .skills store'
+Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(local): claude link resolves'
+Check (Test-Path (Join-Path $proj ".agents/skills/$skill/SKILL.md")) 'skills(local): agents link resolves'
+Check (Test-Path (Join-Path $proj ".junie/skills/$skill/SKILL.md"))  'skills(local): junie link resolves'
 
-    $out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
-    Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
-} else {
-    Write-Host 'skip: no symlink support in this session, skipping skills assertions'
+# Regression guard: on a Windows session without symlink privilege the link must
+# still be created -- as a junction, which needs no Developer Mode / admin.
+if ($onWindows -and -not (Test-SymlinkCapable)) {
+    $linkItem = Get-Item (Join-Path $proj ".claude/skills/$skill") -Force
+    Check ($linkItem.LinkType -eq 'Junction') 'skills(local): falls back to junction without symlink privilege'
 }
+
+$out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
+Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
 
 # ---------------------------------------------------------------------------
 # 3. OpenCode MCP entries (no agent CLI needed)

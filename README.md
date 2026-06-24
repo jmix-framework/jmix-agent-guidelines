@@ -100,12 +100,12 @@ Each skill must sit **directly** inside the agent's skills folder (e.g. `~/.clau
 
 Copy or symlink each folder from `skills/` into the folder recognized by your agent in your project or user home directory:
 
-| Agent       | Project Skills Folder Path | Global Skills Folder Path    |
-|:------------|:---------------------------|:-----------------------------|
-| Claude CLI | `.claude/skills/`          | `~/.claude/skills/`          |
-| Codex       | `.agents/skills/`          | `~/.agents/skills/`          |
-| OpenCode    | `.agents/skills/`          | `~/.agents/skills/`          |
-| Junie       | `.junie/skills`            | `~/.junie/skills/`           |
+| Agent      | Project Skills Folder Path | Global Skills Folder Path |
+|:-----------|:---------------------------|:--------------------------|
+| Claude CLI | `.claude/skills/`          | `~/.claude/skills/`       |
+| Codex      | `.agents/skills/`          | `~/.agents/skills/`       |
+| OpenCode   | `.agents/skills/`          | `~/.agents/skills/`       |
+| Junie      | `.junie/skills`            | `~/.junie/skills/`        |
 
 #### Example
 
