@@ -27,7 +27,7 @@ RESOLVED_VERSION_DIR=""
 TARBALL_READY=0
 
 VERSION=""
-REF="main"
+REF="HEAD"
 SOURCE_DIR=""
 BACKUP_EXISTING=0
 VERBOSE=0
@@ -211,7 +211,7 @@ Common options:
   --version V                Jmix version (e.g. 2.8.0). Optional. Best-matching
                              folder is picked: exact -> major.minor -> major ->
                              latest.
-  --ref REF                  Git ref to download (default: main).
+  --ref REF                  Git ref to download (default: HEAD = repo default branch).
   --source DIR               Install from a local checkout of this repository
                              instead of downloading. Skips the network and
                              overrides --ref. Mainly for CI and offline use.
@@ -332,14 +332,21 @@ ensure_tarball() {
         STAGING="$(mktemp -d 2>/dev/null || mktemp -d -t jmix-install)"
         trap 'rm -rf "$STAGING"' INT TERM EXIT
 
-        local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
         local tarball_path="${STAGING}/source.tar.gz"
         vlog "staging dir: ${STAGING}"
         vlog "requested version: '${VERSION}', ref: '${REF}'"
 
+        local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
         log "Downloading ${tarball_url}"
         local http_status
         http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
+        if [ "$http_status" != "200" ] && [ "$REF" != "HEAD" ]; then
+            log "ref '${REF}' unavailable (HTTP ${http_status}); falling back to default branch (HEAD)"
+            REF="HEAD"
+            tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
+            log "Downloading ${tarball_url}"
+            http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
+        fi
         if [ "$http_status" != "200" ]; then
             die "failed to download ${tarball_url} (HTTP ${http_status})"
         fi

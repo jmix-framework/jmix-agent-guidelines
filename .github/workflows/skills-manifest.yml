@@ -2,7 +2,7 @@ name: Update skills manifest
 
 on:
   push:
-    branches: [ main ]
+    branches: [ 'v[0-9]*' ]
     paths:
       - 'v*/skills/**'
       - '.studio/gen_skills_manifest.py'

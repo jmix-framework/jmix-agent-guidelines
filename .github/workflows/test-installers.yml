@@ -2,7 +2,7 @@ name: Test installers
 
 on:
   push:
-    branches: [ main ]
+    branches: [ 'v[0-9]*' ]
     paths:
       - 'install.sh'
       - 'install.ps1'

@@ -36,7 +36,7 @@ bash "$INSTALL" agents-md --agents claude,codex,opencode,junie --source "$SOURCE
 [ -f "${PROJECT}/CLAUDE.md" ]            || fail "agents-md: CLAUDE.md missing"
 [ -f "${PROJECT}/AGENTS.md" ]            || fail "agents-md: AGENTS.md missing"
 [ -f "${PROJECT}/.junie/guidelines.md" ] || fail "agents-md: .junie/guidelines.md missing"
-cmp -s "${PROJECT}/CLAUDE.md" "${SOURCE}/v2/AGENTS.md" || fail "agents-md: CLAUDE.md content mismatch"
+cmp -s "${PROJECT}/CLAUDE.md" "${SOURCE}/v3/AGENTS.md" || fail "agents-md: CLAUDE.md content mismatch"
 pass "agents-md installs guidelines for all agents"
 
 # ---------------------------------------------------------------------------
@@ -56,21 +56,35 @@ pass "skills(local) builds store and resolving symlinks for all agents"
 # 3. skills, global scope (under $HOME)
 # ---------------------------------------------------------------------------
 bash "$INSTALL" skills --agents claude --scope global --source "$SOURCE" >/dev/null
-[ -d "${HOME}/.agents/.jmix/skills/v2" ]                  || fail "skills(global): store missing"
+[ -d "${HOME}/.agents/.jmix/skills/v3" ]                  || fail "skills(global): store missing"
 [ -e "${HOME}/.claude/skills/${SKILL}/SKILL.md" ]         || fail "skills(global): symlink does not resolve"
 pass "skills(global) builds store under HOME and resolving symlink"
 
 # ---------------------------------------------------------------------------
-# 4. version resolution: unknown major falls back to latest (v2)
+# 4. version resolution: unknown major falls back to latest (v3)
 # ---------------------------------------------------------------------------
 out="$(bash "$INSTALL" skills --agents claude --scope local --version 9.9.9 --source "$SOURCE" 2>&1)"
 echo "$out" | grep -q "falling back to latest" || fail "version: no fallback message for 9.9.9"
 pass "version 9.9.9 falls back to latest available"
 
-# major-only match (2.8.0 -> v2) must NOT report a fallback
-out="$(bash "$INSTALL" skills --agents claude --scope local --version 2.8.0 --source "$SOURCE" 2>&1)"
-echo "$out" | grep -q "falling back to latest" && fail "version: 2.8.0 should match v2 via major, not fall back"
-pass "version 2.8.0 matches v2 via major tier"
+# major-only match (3.8.0 -> v3) must NOT report a fallback
+out="$(bash "$INSTALL" skills --agents claude --scope local --version 3.8.0 --source "$SOURCE" 2>&1)"
+echo "$out" | grep -q "falling back to latest" && fail "version: 3.8.0 should match v3 via major, not fall back"
+pass "version 3.8.0 matches v3 via major tier"
+
+# within-branch minor override: a v3.8 folder must win over v3 for 3.8.0
+TMPSRC="${WORK}/src-minor"
+mkdir -p "$TMPSRC"
+cp -R "${SOURCE}/v3" "${TMPSRC}/v3"
+cp -R "${SOURCE}/v3" "${TMPSRC}/v3.8"
+mkdir -p "${TMPSRC}/v3.8/skills/jmix-marker"
+printf '# marker\n' > "${TMPSRC}/v3.8/skills/jmix-marker/SKILL.md"
+out="$(bash "$INSTALL" skills --agents claude --scope global --version 3.8.0 --source "$TMPSRC" 2>&1)"
+[ -d "${HOME}/.agents/.jmix/skills/v3.8/jmix-marker" ] \
+    || fail "version: 3.8.0 did not resolve within-branch v3.8 override; got: $out"
+echo "$out" | grep -q "falling back to latest" \
+    && fail "version: 3.8.0 with v3.8 present should match exactly, not fall back"
+pass "version 3.8.0 resolves within-branch v3.8 override"
 
 # ---------------------------------------------------------------------------
 # 5. OpenCode MCP entries (no agent CLI needed; requires jq)

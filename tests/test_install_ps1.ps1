@@ -91,8 +91,8 @@ Check (Test-Path (Join-Path $proj 'CLAUDE.md'))            'agents-md: CLAUDE.md
 Check (Test-Path (Join-Path $proj 'AGENTS.md'))            'agents-md: AGENTS.md'
 Check (Test-Path (Join-Path $proj '.junie/guidelines.md')) 'agents-md: .junie/guidelines.md'
 $claude = Get-Content -Raw (Join-Path $proj 'CLAUDE.md')
-$agents = Get-Content -Raw (Join-Path $Source 'v2/AGENTS.md')
-Check ($claude -eq $agents) 'agents-md: CLAUDE.md content matches v2/AGENTS.md'
+$agents = Get-Content -Raw (Join-Path $Source 'v3/AGENTS.md')
+Check ($claude -eq $agents) 'agents-md: CLAUDE.md content matches v3/AGENTS.md'
 
 # ---------------------------------------------------------------------------
 # 2. skills, local scope -- must succeed without symlink privilege
@@ -121,6 +121,19 @@ Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(loc
 
 $out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
 Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
+
+# within-branch minor override: a v3.8 folder must win over v3 for 3.8.0
+$tmpSrc = Join-Path $work 'src-minor'
+New-Item -ItemType Directory -Force -Path $tmpSrc | Out-Null
+Copy-Item -Recurse (Join-Path $Source 'v3') (Join-Path $tmpSrc 'v3')
+Copy-Item -Recurse (Join-Path $Source 'v3') (Join-Path $tmpSrc 'v3.8')
+New-Item -ItemType Directory -Force -Path (Join-Path $tmpSrc 'v3.8/skills/jmix-marker') | Out-Null
+Set-Content -Path (Join-Path $tmpSrc 'v3.8/skills/jmix-marker/SKILL.md') -Value '# marker'
+$out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'global', '-Version', '3.8.0', '-Source', $tmpSrc)
+Check (Test-Path (Join-Path $homeDir '.agents/.jmix/skills/v3.8/jmix-marker')) `
+    'version 3.8.0 resolves within-branch v3.8 override'
+Check (-not ($out -match 'falling back to latest')) `
+    'version 3.8.0 with v3.8 present matches exactly (no fallback)'
 
 # ---------------------------------------------------------------------------
 # 3. OpenCode MCP entries (no agent CLI needed)

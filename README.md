@@ -6,7 +6,9 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-- `v2/` and `v3/` folders contain the guidelines for Jmix 2 and 3 respectively.
+Each Jmix major version lives on its own branch: `v2` for Jmix 2, `v3` for Jmix 3, and so on. The repository default branch is the current stable major (`v2`). Within a branch, content is organized in version folders that the installer matches against your Jmix version (exact → major.minor → major → latest):
+
+- `v3/` (and optional minor overrides like `v3.3/`) contains the guidelines for that version.
   - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
   - `skills/`: A collection of folders, each containing:
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
@@ -26,25 +28,27 @@ installing skills, adding guidelines, registering the recommended MCP servers, a
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.sh | bash
 ```
+
+> `HEAD` resolves to the repository default branch (the current stable major). To pin a specific major, use its branch, e.g. `.../jmix-agent-guidelines/v2/install.sh`.
 
 **Windows (PowerShell 5+):**
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | Invoke-Expression
+Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1 | Invoke-Expression
 ```
 
 If PowerShell blocks the script because of its execution policy, run it explicitly with the policy bypassed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1' | Invoke-Expression"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1' | Invoke-Expression"
 ```
 
 If `powershell.exe` itself is blocked by a corporate policy (`CreateProcess error=5, Access is denied`), use PowerShell 7 (`pwsh`):
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1' | Invoke-Expression"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1' | Invoke-Expression"
 ```
 
 > In Jmix Studio plugin, the same wizard is available from the **Jmix AI Agents Toolkit** action.
@@ -71,7 +75,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                                                                                       |
 |:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                                                                                            |
-| `--ref REF`               | `-Ref REF`             | `main`  | Git ref (branch or tag) of this repository to download.                                                                                                                       |
+| `--ref REF`               | `-Ref REF`             | `HEAD`  | Git ref (branch or tag) of this repository to download. `HEAD` = repo default branch; Jmix Studio passes the matching `v<major>` branch.                                       |
 | `--source DIR`            | `-Source DIR`          | -       | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                              |
 | `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
 | `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
@@ -87,7 +91,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 
 ## Manual Installation
 
-If you prefer not to run the script, follow these steps. Take the files from the `v2/` directory if you are using Jmix 2.
+If you prefer not to run the script, follow these steps. Check out the branch for your Jmix major (`v2` for Jmix 2) and take the files from its version folder (e.g. `v2/`).
 
 ### 1. Project Guidelines
 
@@ -118,6 +122,7 @@ Copy or symlink each folder from `skills/` into the folder recognized by your ag
 Symlink each skill individually. This is idempotent — re-run it after pulling new skills, and it leaves any non-Jmix skills in the folder untouched:
 ```bash
 mkdir -p ~/.claude/skills
+# run from a checkout of the v2 branch (or your major's branch)
 for skill in /path/to/jmix-agent-guidelines/v2/skills/*/; do
     ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
 done
