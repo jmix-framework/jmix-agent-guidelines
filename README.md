@@ -12,7 +12,13 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
       - Optional subdirectories with examples or other materials.
 
-## Quick Install
+## Studio Installation
+
+The simplest way to install agent guidelines to your project is to use Jmix Studio. Execute the **AI Agents Toolkit** action in the **Settings** menu of the **Jmix** tool window and follow the steps of the GUI interactive wizard.
+
+You don't have to clone this repository locally, Studio itself will download the content from GitHub.
+
+## Quick CLI Installation
 
 A single command launches an interactive wizard that walks through every setup step: 
 installing skills, adding guidelines, registering the recommended MCP servers, and setting up Playwright testing.
