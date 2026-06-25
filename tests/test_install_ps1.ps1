@@ -122,6 +122,19 @@ Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(loc
 $out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'local', '-Version', '9.9.9', '-Source', $Source)
 Check ($out -match 'falling back to latest') 'version 9.9.9 falls back to latest'
 
+# within-branch minor override: a v2.8 folder must win over v2 for 2.8.0
+$tmpSrc = Join-Path $work 'src-minor'
+New-Item -ItemType Directory -Force -Path $tmpSrc | Out-Null
+Copy-Item -Recurse (Join-Path $Source 'v2') (Join-Path $tmpSrc 'v2')
+Copy-Item -Recurse (Join-Path $Source 'v2') (Join-Path $tmpSrc 'v2.8')
+New-Item -ItemType Directory -Force -Path (Join-Path $tmpSrc 'v2.8/skills/jmix-marker') | Out-Null
+Set-Content -Path (Join-Path $tmpSrc 'v2.8/skills/jmix-marker/SKILL.md') -Value '# marker'
+$out = Invoke-InstallerCapture @('skills', '-Agents', 'claude', '-Scope', 'global', '-Version', '2.8.0', '-Source', $tmpSrc)
+Check (Test-Path (Join-Path $homeDir '.agents/.jmix/skills/v2.8/jmix-marker')) `
+    'version 2.8.0 resolves within-branch v2.8 override'
+Check (-not ($out -match 'falling back to latest')) `
+    'version 2.8.0 with v2.8 present matches exactly (no fallback)'
+
 # ---------------------------------------------------------------------------
 # 3. OpenCode MCP entries (no agent CLI needed)
 # ---------------------------------------------------------------------------

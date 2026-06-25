@@ -72,6 +72,20 @@ out="$(bash "$INSTALL" skills --agents claude --scope local --version 2.8.0 --so
 echo "$out" | grep -q "falling back to latest" && fail "version: 2.8.0 should match v2 via major, not fall back"
 pass "version 2.8.0 matches v2 via major tier"
 
+# within-branch minor override: a v2.8 folder must win over v2 for 2.8.0
+TMPSRC="${WORK}/src-minor"
+mkdir -p "$TMPSRC"
+cp -R "${SOURCE}/v2" "${TMPSRC}/v2"
+cp -R "${SOURCE}/v2" "${TMPSRC}/v2.8"
+mkdir -p "${TMPSRC}/v2.8/skills/jmix-marker"
+printf '# marker\n' > "${TMPSRC}/v2.8/skills/jmix-marker/SKILL.md"
+out="$(bash "$INSTALL" skills --agents claude --scope global --version 2.8.0 --source "$TMPSRC" 2>&1)"
+[ -d "${HOME}/.agents/.jmix/skills/v2.8/jmix-marker" ] \
+    || fail "version: 2.8.0 did not resolve within-branch v2.8 override; got: $out"
+echo "$out" | grep -q "falling back to latest" \
+    && fail "version: 2.8.0 with v2.8 present should match exactly, not fall back"
+pass "version 2.8.0 resolves within-branch v2.8 override"
+
 # ---------------------------------------------------------------------------
 # 5. OpenCode MCP entries (no agent CLI needed; requires jq)
 # ---------------------------------------------------------------------------

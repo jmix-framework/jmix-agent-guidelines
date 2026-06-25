@@ -31,7 +31,7 @@
     exact -> major.minor -> major -> latest.
 
 .PARAMETER Ref
-    Git ref (branch or tag) to download. Default: main.
+    Git ref (branch or tag) to download. Default: HEAD (repo default branch).
 
 .PARAMETER Source
     Install from a local checkout of this repository instead of downloading.
@@ -56,17 +56,17 @@
     copied. Off by default.
 
 .EXAMPLE
-    Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1 | Invoke-Expression
+    Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1 | Invoke-Expression
 
 .EXAMPLE
-    & ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/main/install.ps1).Content)) skills -Agent claude
+    & ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1).Content)) skills -Agent claude
 #>
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [string]$Subcommand = '',
     [string]$Version = '',
-    [string]$Ref = 'main',
+    [string]$Ref = 'HEAD',
     [string]$Source = '',
     [string]$Agents = '',
     [string]$Scope = '',
@@ -336,29 +336,35 @@ function Initialize-Tarball {
         $script:Staging = Join-Path ([System.IO.Path]::GetTempPath()) ("jmix-install-" + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $script:Staging -Force | Out-Null
 
-        $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$Ref"
-        $zipPath    = Join-Path $script:Staging 'source.zip'
+        $zipPath = Join-Path $script:Staging 'source.zip'
         Write-Verbose "staging: $($script:Staging)"
-        Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$Ref'"
 
-        Write-Info "Downloading $archiveUrl"
+        $refsToTry = if ($Ref -eq 'HEAD') { @('HEAD') } else { @($Ref, 'HEAD') }
         $downloaded = $false
-        for ($attempt = 1; $attempt -le 3; $attempt++) {
-            try {
-                Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
-                $downloaded = $true
-                break
-            } catch {
-                $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
-                if ($attempt -lt 3) {
-                    Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
-                    Start-Sleep -Seconds 2
-                } else {
-                    Write-ErrAndExit "failed to download $archiveUrl after $attempt attempts (HTTP $status)"
+        foreach ($refToTry in $refsToTry) {
+            $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$refToTry"
+            Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$refToTry'"
+            Write-Info "Downloading $archiveUrl"
+            for ($attempt = 1; $attempt -le 3; $attempt++) {
+                try {
+                    Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
+                    $downloaded = $true
+                    $Ref = $refToTry
+                    break
+                } catch {
+                    $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+                    if ($attempt -lt 3) {
+                        Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
+                        Start-Sleep -Seconds 2
+                    } else {
+                        Write-Info "ref '$refToTry' unavailable (HTTP $status)"
+                    }
                 }
             }
+            if ($downloaded) { break }
+            if ($refToTry -ne 'HEAD') { Write-Info "falling back to default branch (HEAD)" }
         }
-        if (-not $downloaded) { Write-ErrAndExit "failed to download $archiveUrl" }
+        if (-not $downloaded) { Write-ErrAndExit "failed to download from refs: $($refsToTry -join ', ')" }
 
         Expand-Archive -Path $zipPath -DestinationPath $script:Staging -Force
 
