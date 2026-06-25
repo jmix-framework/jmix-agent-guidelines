@@ -6,7 +6,7 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-- `v2/` contains the guidelines for Jmix 2.
+- `v2/` and `v3/` folders contain the guidelines for Jmix 2 and 3 respectively.
   - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
   - `skills/`: A collection of folders, each containing:
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
