@@ -14,9 +14,9 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Studio Installation
 
-The simplest way to install agent guidelines to your project is to use Jmix Studio. Execute the **AI Agents Toolkit** action in the **Settings** menu of the **Jmix** tool window and follow the steps of the GUI interactive wizard.
+The simplest way to install agent guidelines to your project is to use Jmix Studio 3.0+. 
 
-You don't have to clone this repository locally, Studio itself will download the content from GitHub.
+Execute the **AI Agents Toolkit** action in the **Settings** menu of the **Jmix** tool window and follow the steps of the GUI interactive wizard.
 
 ## Quick CLI Installation
 
