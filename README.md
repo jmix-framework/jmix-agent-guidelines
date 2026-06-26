@@ -6,7 +6,7 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-Each Jmix major version lives on its own branch: `v2` for Jmix 2, `v3` for Jmix 3, and so on. The repository default branch is the current stable major (`v2`). Each branch holds a single `content/` folder:
+Each Jmix major version lives on its own branch: `v2` for Jmix 2, `v3` for Jmix 3, and so on. The repository default branch is the current stable major. Each branch holds a single `content/` folder:
 
 - `content/` contains the guidelines for that branch's Jmix version.
   - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
@@ -30,8 +30,6 @@ installing skills, adding guidelines, registering the recommended MCP servers, a
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/v3/install.sh | bash
 ```
-
-> `HEAD` resolves to the repository default branch (the current stable major). To pin a specific major, use its branch, e.g. `.../jmix-agent-guidelines/v2/install.sh`.
 
 **Windows (PowerShell 5+):**
 
@@ -82,14 +80,14 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 | `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
 
 **Skills storages:**
-- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude CLI), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
+- **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v3`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude CLI), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
 - **Local:** store at `<project>/.skills/`; each `jmix-*` folder symlinked into `<project>/.agents/skills`, `<project>/.claude/skills`, `<project>/.junie/skills`.
 
 > The automatic installer covers skills (installed globally or into the project), project guidelines, MCP server registration, and Playwright testing skills. The Playwright step runs `@playwright/cli` via `npx`, so `npx` (Node.js) must be available on PATH.
 
 ## Manual Installation
 
-If you prefer not to run the script, follow these steps. Check out the branch for your Jmix major (`v2` for Jmix 2) and take the files from its `content/` folder.
+If you prefer not to run the script, follow these steps. Check out the branch for your Jmix major and take the files from its `content/` folder.
 
 ### 1. Project Guidelines
 
