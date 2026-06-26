@@ -53,17 +53,12 @@ done
 pass "skills(local) builds store and resolving symlinks for all agents"
 
 # ---------------------------------------------------------------------------
-# 3. skills, global scope (under $HOME) -- store keyed by --version major
+# 3. skills, global scope (under $HOME) -- store keyed by the branch (CONTENT_REF)
 # ---------------------------------------------------------------------------
-bash "$INSTALL" skills --agents claude --scope global --version 3.0.0 --source "$SOURCE" >/dev/null
+bash "$INSTALL" skills --agents claude --scope global --source "$SOURCE" >/dev/null
 [ -d "${HOME}/.agents/.jmix/skills/v3" ]                  || fail "skills(global): v3 store missing"
 [ -e "${HOME}/.claude/skills/${SKILL}/SKILL.md" ]         || fail "skills(global): symlink does not resolve"
-pass "skills(global) builds v<major> store under HOME and resolving symlink"
-
-# store segment follows --version major, not the content folder name
-bash "$INSTALL" skills --agents claude --scope global --version 2.8.0 --source "$SOURCE" >/dev/null
-[ -d "${HOME}/.agents/.jmix/skills/v2" ] || fail "store: --version 2.8.0 should install under v2"
-pass "store segment keyed by --version major (v2)"
+pass "skills(global) builds v3 store under HOME and resolving symlink"
 
 # ---------------------------------------------------------------------------
 # 5. OpenCode MCP entries (no agent CLI needed; requires jq)

@@ -26,9 +26,9 @@ SOURCE_AGENTS_MD=""
 RESOLVED_VERSION_DIR=""
 TARBALL_READY=0
 
-VERSION=""
-REF="HEAD"
-REF_EXPLICIT=0
+# Branch identity: this script lives on the CONTENT_REF branch and installs that
+# branch's content/. Set per branch when cutting a new version (see MAINTAINING.md).
+CONTENT_REF="v3"
 SOURCE_DIR=""
 BACKUP_EXISTING=0
 VERBOSE=0
@@ -201,7 +201,7 @@ usage() {
 Jmix AI Agents Toolkit installer.
 
 Usage:
-  install.sh [--version V] [--ref REF]                           # interactive wizard
+  install.sh                                                     # interactive wizard
   install.sh skills        --agents CSV [--scope global|local]   # install skills into the canonical store and symlink agent dirs
   install.sh agents-md     [options]                             # install project guidelines
   install.sh mcp-jetbrains [options]                             # register JetBrains MCP
@@ -209,14 +209,9 @@ Usage:
   install.sh playwright    [options]                             # install Playwright
 
 Common options:
-  --version V                Jmix version (e.g. 2.8.0). Optional. Selects the
-                             guidelines branch (v<major>) to download and the
-                             store segment ~/.agents/.jmix/skills/v<major>.
-  --ref REF                  Git ref to download (default: derived from --version,
-                             else HEAD = repo default branch).
   --source DIR               Install from a local checkout of this repository
-                             instead of downloading. Skips the network and
-                             overrides --ref. Mainly for CI and offline use.
+                             instead of downloading. Skips the network. Mainly
+                             for CI and offline use.
   --agents CSV               Comma-separated agent list. Accepts a single value
                              too (e.g. "claude" or "claude,codex"). Required by
                              every subcommand. Valid values:
@@ -253,7 +248,7 @@ ensure_tarball() {
 
     if [ -n "$SOURCE_DIR" ]; then
         # Install from a local checkout instead of downloading. Skips the network
-        # entirely and overrides --ref. Used by CI and offline installs.
+        # entirely. Used by CI and offline installs.
         [ -d "$SOURCE_DIR" ] || die "source directory not found: ${SOURCE_DIR}"
         EXTRACTED_DIR="$(cd "$SOURCE_DIR" && pwd -P)"
         vlog "using local source dir: ${EXTRACTED_DIR} (download skipped)"
@@ -267,27 +262,10 @@ ensure_tarball() {
         local tarball_path="${STAGING}/source.tar.gz"
         vlog "staging dir: ${STAGING}"
 
-        # Default the content ref to the version's branch (v<major>) when --ref
-        # was not given, so the downloaded content matches --version.
-        if [ "$REF_EXPLICIT" -eq 0 ] && [ -n "$VERSION" ]; then
-            local derived_major
-            derived_major="$(printf '%s' "$VERSION" | awk -F'[.-]' '{print $1}')"
-            [ -n "$derived_major" ] && REF="v${derived_major}"
-        fi
-
-        vlog "requested version: '${VERSION}', ref: '${REF}'"
-
-        local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
+        local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${CONTENT_REF}"
         log "Downloading ${tarball_url}"
         local http_status
         http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
-        if [ "$http_status" != "200" ] && [ "$REF" != "HEAD" ]; then
-            log "ref '${REF}' unavailable (HTTP ${http_status}); falling back to default branch (HEAD)"
-            REF="HEAD"
-            tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
-            log "Downloading ${tarball_url}"
-            http_status="$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 30 --max-time 300 -w '%{http_code}' -o "$tarball_path" "$tarball_url" || echo "000")"
-        fi
         if [ "$http_status" != "200" ]; then
             die "failed to download ${tarball_url} (HTTP ${http_status})"
         fi
@@ -299,21 +277,14 @@ ensure_tarball() {
 
     local content_dir="${EXTRACTED_DIR}/content"
     if [ ! -d "${content_dir}/skills" ]; then
-        die "content/skills not found in ${SOURCE_DIR:-$REF}"
+        die "content/skills not found in ${SOURCE_DIR:-$CONTENT_REF}"
     fi
     SOURCE_SKILLS_DIR="${content_dir}/skills"
     SOURCE_AGENTS_MD="${content_dir}/AGENTS.md"
 
-    # Store segment under ~/.agents/.jmix/skills/<seg>: keyed by major so multiple
-    # Jmix majors coexist on one machine. Derived from --version (matches Studio),
-    # falling back to the ref, then "content".
-    if [ -n "$VERSION" ]; then
-        RESOLVED_VERSION_DIR="v$(printf '%s' "$VERSION" | awk -F'[.-]' '{print $1}')"
-    elif [ -n "$REF" ] && [ "$REF" != "HEAD" ]; then
-        RESOLVED_VERSION_DIR="$REF"
-    else
-        RESOLVED_VERSION_DIR="content"
-    fi
+    # Store segment under ~/.agents/.jmix/skills/<seg>: the branch name, so
+    # multiple Jmix majors coexist on one machine.
+    RESOLVED_VERSION_DIR="$CONTENT_REF"
 
     vlog "extracted dir: ${EXTRACTED_DIR}"
     vlog "store segment: ${RESOLVED_VERSION_DIR}"
@@ -444,12 +415,6 @@ cmd_skills() {
                 scope="$2"; shift 2 ;;
             --backup-existing-files)
                 BACKUP_EXISTING=1; shift ;;
-            --version)
-                [ $# -ge 2 ] || die "--version requires an argument"
-                VERSION="$2"; shift 2 ;;
-            --ref)
-                [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
@@ -551,12 +516,6 @@ cmd_agents_md() {
                 agents_csv="$2"; shift 2 ;;
             --backup-existing-files)
                 BACKUP_EXISTING=1; shift ;;
-            --version)
-                [ $# -ge 2 ] || die "--version requires an argument"
-                VERSION="$2"; shift 2 ;;
-            --ref)
-                [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
@@ -928,12 +887,6 @@ cmd_wizard() {
         [ "$#" -ne "$_argc" ] || die "argument parser made no progress near: $1"
         _argc=$#
         case "$1" in
-            --version)
-                [ $# -ge 2 ] || die "--version requires an argument"
-                VERSION="$2"; shift 2 ;;
-            --ref)
-                [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
@@ -945,7 +898,6 @@ cmd_wizard() {
     done
 
     log "=== Jmix AI Agents Toolkit ==="
-    [ -n "$VERSION" ] && log "Jmix version: ${VERSION}"
     log "Working directory: $(pwd -P)"
 
     local summary_skills="skipped"

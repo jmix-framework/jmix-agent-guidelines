@@ -12,10 +12,10 @@
       5. Installing Playwright testing skills (requires npx).
 
     Subcommands are available for non-interactive use:
-      install.ps1 skills        -Agents CSV [-Scope global|local] [-Version V] [-Ref REF]
+      install.ps1 skills        -Agents CSV [-Scope global|local]
                                 Installs skills into a canonical store once, then symlinks each
                                 selected agent's skills dir to that store.
-      install.ps1 agents-md     -Agents CSV [-Version V] [-Ref REF]
+      install.ps1 agents-md     -Agents CSV
       install.ps1 mcp-jetbrains -Agents CSV
       install.ps1 mcp-context7  -Agents CSV [-Context7Key KEY]
       install.ps1 playwright    -Agents CSV   # requires npx (Node.js) on PATH
@@ -25,13 +25,6 @@
 
 .PARAMETER Subcommand
     Optional subcommand. When omitted, the interactive wizard is started.
-
-.PARAMETER Version
-    Jmix version (e.g. 2, 2.8, 2.8.0). Optional. Selects the guidelines branch
-    (v<major>) to download and the store segment ~/.agents/.jmix/skills/v<major>.
-
-.PARAMETER Ref
-    Git ref (branch or tag) to download. Default: HEAD (repo default branch).
 
 .PARAMETER Source
     Install from a local checkout of this repository instead of downloading.
@@ -65,8 +58,6 @@
 param(
     [Parameter(Position = 0)]
     [string]$Subcommand = '',
-    [string]$Version = '',
-    [string]$Ref = 'HEAD',
     [string]$Source = '',
     [string]$Agents = '',
     [string]$Scope = '',
@@ -77,9 +68,9 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-# Whether -Ref was passed explicitly (vs its default). Captured at script scope
-# because $PSBoundParameters inside a function refers to that function's params.
-$script:RefExplicit = $PSBoundParameters.ContainsKey('Ref')
+# Branch identity: this script lives on the $ContentRef branch and installs that
+# branch's content/. Set per branch when cutting a new version (see MAINTAINING.md).
+$ContentRef = 'v3'
 
 $script:RepoOwner = 'jmix-framework'
 $script:RepoName  = 'jmix-agent-guidelines'
@@ -264,39 +255,24 @@ function Initialize-Tarball {
         $zipPath = Join-Path $script:Staging 'source.zip'
         Write-Verbose "staging: $($script:Staging)"
 
-        # Default the content ref to the version's branch (v<major>) when -Ref
-        # was not given, so downloaded content matches -Version.
-        if (-not $script:RefExplicit -and $Version) {
-            $major = ($Version -split '[.-]')[0]
-            if ($major) { $Ref = "v$major" }
-        }
-
-        $refsToTry = if ($Ref -eq 'HEAD') { @('HEAD') } else { @($Ref, 'HEAD') }
+        $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$ContentRef"
+        Write-Verbose "archiveUrl: $archiveUrl"
+        Write-Info "Downloading $archiveUrl"
         $downloaded = $false
-        foreach ($refToTry in $refsToTry) {
-            $archiveUrl = "https://codeload.github.com/$($script:RepoOwner)/$($script:RepoName)/zip/$refToTry"
-            Write-Verbose "archiveUrl: $archiveUrl ; requested version: '$Version', ref: '$refToTry'"
-            Write-Info "Downloading $archiveUrl"
-            for ($attempt = 1; $attempt -le 3; $attempt++) {
-                try {
-                    Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
-                    $downloaded = $true
-                    $Ref = $refToTry
-                    break
-                } catch {
-                    $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
-                    if ($attempt -lt 3) {
-                        Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
-                        Start-Sleep -Seconds 2
-                    } else {
-                        Write-Info "ref '$refToTry' unavailable (HTTP $status)"
-                    }
+        for ($attempt = 1; $attempt -le 3; $attempt++) {
+            try {
+                Invoke-WebRequest -UseBasicParsing -Uri $archiveUrl -OutFile $zipPath -TimeoutSec 300
+                $downloaded = $true
+                break
+            } catch {
+                $status = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+                if ($attempt -lt 3) {
+                    Write-Info "Download attempt $attempt failed (HTTP $status); retrying in 2s..."
+                    Start-Sleep -Seconds 2
                 }
             }
-            if ($downloaded) { break }
-            if ($refToTry -ne 'HEAD') { Write-Info "falling back to default branch (HEAD)" }
         }
-        if (-not $downloaded) { Write-ErrAndExit "failed to download from refs: $($refsToTry -join ', ')" }
+        if (-not $downloaded) { Write-ErrAndExit "failed to download $archiveUrl" }
 
         Expand-Archive -Path $zipPath -DestinationPath $script:Staging -Force
 
@@ -312,19 +288,13 @@ function Initialize-Tarball {
     $contentDir = Join-Path $script:ExtractedDir 'content'
     $script:SourceSkillsDir = Join-Path $contentDir 'skills'
     if (-not (Test-Path $script:SourceSkillsDir -PathType Container)) {
-        Write-ErrAndExit "content/skills not found in $(if ($Source) { $Source } else { $Ref })"
+        Write-ErrAndExit "content/skills not found in $(if ($Source) { $Source } else { $ContentRef })"
     }
     $script:SourceAgentsMd = Join-Path $contentDir 'AGENTS.md'
 
-    # Store segment under ~/.agents/.jmix/skills/<seg>: keyed by major so multiple
-    # Jmix majors coexist. Derived from -Version (matches Studio), else the ref, else 'content'.
-    if ($Version) {
-        $script:ResolvedVersionDir = "v$(($Version -split '[.-]')[0])"
-    } elseif ($Ref -and $Ref -ne 'HEAD') {
-        $script:ResolvedVersionDir = $Ref
-    } else {
-        $script:ResolvedVersionDir = 'content'
-    }
+    # Store segment under ~/.agents/.jmix/skills/<seg>: the branch name, so multiple
+    # Jmix majors coexist on one machine.
+    $script:ResolvedVersionDir = $ContentRef
 
     Write-Verbose "extracted dir: $($script:ExtractedDir)"
     Write-Verbose "store segment: $($script:ResolvedVersionDir)"
@@ -817,7 +787,6 @@ function Read-AgentChoice {
 
 function Invoke-Wizard {
     Write-Info '=== Jmix AI Agents Toolkit ==='
-    if ($Version) { Write-Info "Jmix version: $Version" }
     Write-Info "Working directory: $((Get-Location).Path)"
 
     $summaryStrings = @{

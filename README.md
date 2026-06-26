@@ -59,8 +59,8 @@ Use these to run a single step without the wizard. Every subcommand takes the
 same `--agents CSV` flag:
 
 ```bash
-install.sh skills        --agents CSV   [--scope global|local] [--version V]
-install.sh agents-md     --agents CSV   [--version V]
+install.sh skills        --agents CSV   [--scope global|local]
+install.sh agents-md     --agents CSV
 install.sh mcp-jetbrains --agents CSV
 install.sh mcp-context7  --agents CSV   [--context7-key KEY]
 install.sh playwright    --agents CSV   # requires npx (Node.js) on PATH
@@ -72,16 +72,14 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 
 ### Flags
 
-| Flag (bash)               | Flag (PowerShell)      | Default          | Meaning                                                                                                                                                                                                                   |
-|:--------------------------|:-----------------------|:-----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--version V`             | `-Version V`           | -                | Jmix version (e.g. `2.8.0`). Selects the guidelines branch `v<major>` to download and the store segment `~/.agents/.jmix/skills/v<major>`.                                                                                |
-| `--ref REF`               | `-Ref REF`             | from `--version` | Git ref (branch or tag) to download. When omitted, defaults to the version's branch `v<major>` derived from `--version`, falling back to `HEAD` (repo default branch) when no version is given or that branch is missing. |
-| `--source DIR`            | `-Source DIR`          | -                | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                                                                          |
-| `--agents CSV`            | `-Agents CSV`          | -                | Comma-separated agents. Required by every subcommand.                                                                                                                                                                     |
-| `--scope global\|local`   | `-Scope global\|local` | global           | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store.                                             |
-| `--context7-key K`        | `-Context7Key K`       | prompt           | Context7 API key. Prompted interactively when omitted.                                                                                                                                                                    |
-| `--backup-existing-files` | `-BackupExistingFiles` | off              | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                                                                       |
-| `--verbose`, `--debug`    | `-Verbose`             | off              | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                                                              |
+| Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                                                                                       |
+|:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--source DIR`            | `-Source DIR`          | -       | Install from a local checkout of this repository instead of downloading. Skips the network. Mainly for CI and offline use.                                                    |
+| `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
+| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
+| `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                                                                                        |
+| `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                           |
+| `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
 
 **Skills storages:**
 - **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude CLI), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).

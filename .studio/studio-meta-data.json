@@ -53,9 +53,9 @@
           }
         ],
         "command": {
-          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.ps1).Content)) skills -Agents \"${skillsAgents}\" -Scope \"${skillsScope}\" -Version \"${JMIX_VERSION}\"",
-          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\" --version \"${JMIX_VERSION}\"",
-          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\" --version \"${JMIX_VERSION}\""
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.ps1).Content)) skills -Agents \"${skillsAgents}\" -Scope \"${skillsScope}\"",
+          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\"",
+          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- skills --agents \"${skillsAgents}\" --scope \"${skillsScope}\""
         }
       },
       {
@@ -93,9 +93,9 @@
           }
         ],
         "command": {
-          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.ps1).Content)) agents-md -Agents \"${guidelinesAgents}\" -Version \"${JMIX_VERSION}\"",
-          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\" --version \"${JMIX_VERSION}\"",
-          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\" --version \"${JMIX_VERSION}\""
+          "windows": "& ([scriptblock]::Create((iwr -useb https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.ps1).Content)) agents-md -Agents \"${guidelinesAgents}\"",
+          "macos": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\"",
+          "linux": "curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/${guidelinesBranch}/install.sh | bash -s -- agents-md --agents \"${guidelinesAgents}\""
         }
       },
       {

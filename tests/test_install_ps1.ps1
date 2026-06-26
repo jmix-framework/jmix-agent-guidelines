@@ -119,14 +119,10 @@ Check ((Invoke-Installer @('skills', '-Agents', 'claude,codex,opencode,junie', '
     'skills(local): re-run exits 0 (links already exist)'
 Check (Test-Path (Join-Path $proj ".claude/skills/$skill/SKILL.md")) 'skills(local): claude link still resolves after re-run'
 
-# skills global -- store keyed by --version major (v<major>)
-Check ((Invoke-Installer @('skills', '-Agents', 'claude', '-Scope', 'global', '-Version', '3.0.0', '-Source', $Source)) -eq 0) `
+# skills global -- store keyed by the branch (CONTENT_REF)
+Check ((Invoke-Installer @('skills', '-Agents', 'claude', '-Scope', 'global', '-Source', $Source)) -eq 0) `
     'skills(global) exits 0'
 Check (Test-Path (Join-Path $homeDir '.agents/.jmix/skills/v3')) 'skills(global): v3 store created'
-# store segment follows --version major, not the content folder name
-Check ((Invoke-Installer @('skills', '-Agents', 'claude', '-Scope', 'global', '-Version', '2.8.0', '-Source', $Source)) -eq 0) `
-    'skills(global) v2 exits 0'
-Check (Test-Path (Join-Path $homeDir '.agents/.jmix/skills/v2')) 'store segment keyed by --version major (v2)'
 
 # ---------------------------------------------------------------------------
 # 3. OpenCode MCP entries (no agent CLI needed)
