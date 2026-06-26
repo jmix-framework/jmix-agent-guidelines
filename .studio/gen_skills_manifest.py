@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate .studio/skills-manifest.json (version -> {skills[], sha256}).
+"""Generate .studio/skills-manifest.json ({store, skills[], sha256}).
 
 The aggregate hash is byte-identical to jmix-studio logic:
 for each listed skill folder, walk files; entry = relpath(UTF-8) + 0x00 + bytes,
@@ -47,16 +47,14 @@ def aggregate_hash(skills_dir, skill_names):
     return digest.hexdigest()
 
 def build_manifest():
-    versions = {}
-    for entry in sorted(os.listdir(REPO_ROOT)):
-        if not entry.startswith("v"):
-            continue
-        skills_dir = os.path.join(REPO_ROOT, entry, "skills")
-        if not os.path.isdir(skills_dir):
-            continue
-        names = list_skill_names(skills_dir)
-        versions[entry] = {"skills": names, "sha256": aggregate_hash(skills_dir, names)}
-    return {"schemaVersion": 1, "store": STORE, "versions": versions}
+    skills_dir = os.path.join(REPO_ROOT, "content", "skills")
+    names = list_skill_names(skills_dir)
+    return {
+        "schemaVersion": 1,
+        "store": STORE,
+        "skills": names,
+        "sha256": aggregate_hash(skills_dir, names),
+    }
 
 def main():
     manifest = build_manifest()

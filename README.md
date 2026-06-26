@@ -6,9 +6,9 @@ The AI agent will use these resources to understand Jmix-specific patterns, mand
 
 ## Repository Structure
 
-Each Jmix major version lives on its own branch: `v2` for Jmix 2, `v3` for Jmix 3, and so on. The repository default branch is the current stable major (`v2`). Within a branch, content is organized in version folders that the installer matches against your Jmix version (exact → major.minor → major → latest):
+Each Jmix major version lives on its own branch: `v2` for Jmix 2, `v3` for Jmix 3, and so on. The repository default branch is the current stable major (`v2`). Each branch holds a single `content/` folder:
 
-- `v2/` (and optional minor overrides like `v2.8/`) contains the guidelines for that version.
+- `content/` contains the guidelines for that branch's Jmix version.
   - `AGENTS.md`: General coding guidelines, architecture overview, and development workflow for Jmix projects.
   - `skills/`: A collection of folders, each containing:
       - `SKILL.md`: Detailed instructions and rules for the agent regarding a specific Jmix feature.
@@ -74,7 +74,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 
 | Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                                                                                       |
 |:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--version V`             | `-Version V`           | latest  | Jmix version. Picks the best-matching `v*` folder.                                                                                                                            |
+| `--version V`             | `-Version V`           | -       | Jmix version (e.g. `2.8.0`). Selects the guidelines branch `v<major>` to download and the store segment `~/.agents/.jmix/skills/v<major>`.                                     |
 | `--ref REF`               | `-Ref REF`             | from `--version` | Git ref (branch or tag) to download. When omitted, defaults to the version's branch `v<major>` derived from `--version`, falling back to `HEAD` (repo default branch) when no version is given or that branch is missing. |
 | `--source DIR`            | `-Source DIR`          | -       | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                              |
 | `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
@@ -91,7 +91,7 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 
 ## Manual Installation
 
-If you prefer not to run the script, follow these steps. Check out the branch for your Jmix major (`v2` for Jmix 2) and take the files from its version folder (e.g. `v2/`).
+If you prefer not to run the script, follow these steps. Check out the branch for your Jmix major (`v2` for Jmix 2) and take the files from its `content/` folder.
 
 ### 1. Project Guidelines
 
@@ -122,8 +122,8 @@ Copy or symlink each folder from `skills/` into the folder recognized by your ag
 Symlink each skill individually. This is idempotent — re-run it after pulling new skills, and it leaves any non-Jmix skills in the folder untouched:
 ```bash
 mkdir -p ~/.claude/skills
-# run from a checkout of the v2 branch (or your major's branch)
-for skill in /path/to/jmix-agent-guidelines/v2/skills/*/; do
+# run from a checkout of your major's branch (v2, v3, ...)
+for skill in /path/to/jmix-agent-guidelines/content/skills/*/; do
     ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
 done
 ```
