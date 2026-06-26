@@ -209,10 +209,11 @@ Usage:
   install.sh playwright    [options]                             # install Playwright
 
 Common options:
-  --version V                Jmix version (e.g. 2.8.0). Optional. Best-matching
-                             folder is picked: exact -> major.minor -> major ->
-                             latest.
-  --ref REF                  Git ref to download (default: HEAD = repo default branch).
+  --version V                Jmix version (e.g. 2.8.0). Optional. Selects the
+                             guidelines branch (v<major>) to download and the
+                             store segment ~/.agents/.jmix/skills/v<major>.
+  --ref REF                  Git ref to download (default: derived from --version,
+                             else HEAD = repo default branch).
   --source DIR               Install from a local checkout of this repository
                              instead of downloading. Skips the network and
                              overrides --ref. Mainly for CI and offline use.
@@ -242,80 +243,10 @@ EOF
 }
 
 # =================================================================
-# Tarball + version resolution
+# Tarball download
 # =================================================================
 
-version_sort_key() {
-    printf '%s' "$1" | awk -F'[.-]' '{
-        for (i = 1; i <= 5; i++) {
-            v = (i <= NF) ? $i : 0
-            if (v ~ /^[0-9]+$/) printf "%05d", v
-            else printf "%05d", 0
-        }
-        print ""
-    }'
-}
-
-find_latest_skills_dir() {
-    local extracted="$1"
-    local best_key=""
-    local best_path=""
-    for dir in "$extracted"/v*/; do
-        [ -d "${dir}skills" ] || continue
-        local name="${dir%/}"
-        name="${name##*/v}"
-        [ -n "$name" ] || continue
-        local key
-        key="$(version_sort_key "$name")"
-        if [ -z "$best_key" ] || [ "$key" \> "$best_key" ]; then
-            best_key="$key"
-            best_path="${dir}skills"
-        fi
-    done
-    [ -n "$best_path" ] || return 1
-    printf '%s\n' "$best_path"
-}
-
-# Resolves skills dir using tiered match (exact, major.minor, major) with
-# latest-version fallback. Exit codes:
-#   0 - matched (or no-version default)
-#   2 - fallback used (requested didn't match any tier)
-#   1 - no v*/skills dir found
-resolve_skills_dir() {
-    local extracted="$1"
-    local requested="$2"
-
-    if [ -z "$requested" ]; then
-        find_latest_skills_dir "$extracted"
-        return $?
-    fi
-
-    if [ -d "${extracted}/v${requested}/skills" ]; then
-        printf '%s\n' "${extracted}/v${requested}/skills"
-        return 0
-    fi
-
-    local major_minor
-    major_minor="$(printf '%s' "$requested" | awk -F'[.-]' '{ if (NF >= 2 && $1 != "" && $2 != "") print $1"."$2 }')"
-    if [ -n "$major_minor" ] && [ "$major_minor" != "$requested" ] && [ -d "${extracted}/v${major_minor}/skills" ]; then
-        printf '%s\n' "${extracted}/v${major_minor}/skills"
-        return 0
-    fi
-
-    local major
-    major="$(printf '%s' "$requested" | awk -F'[.-]' '{print $1}')"
-    if [ -n "$major" ] && [ "$major" != "$requested" ] && [ -d "${extracted}/v${major}/skills" ]; then
-        printf '%s\n' "${extracted}/v${major}/skills"
-        return 0
-    fi
-
-    local fallback_path
-    fallback_path="$(find_latest_skills_dir "$extracted")" || return 1
-    printf '%s\n' "$fallback_path"
-    return 2
-}
-
-# Downloads and extracts the tarball, resolves the version folder, and populates
+# Downloads and extracts the tarball, locates the content/ folder, and populates
 # SOURCE_SKILLS_DIR / SOURCE_AGENTS_MD / RESOLVED_VERSION_DIR. Idempotent.
 ensure_tarball() {
     [ "$TARBALL_READY" -eq 1 ] && return 0
@@ -366,23 +297,27 @@ ensure_tarball() {
         [ -n "$EXTRACTED_DIR" ] || die "extracted source directory not found in ${STAGING}"
     fi
 
-    local resolve_status=0
-    SOURCE_SKILLS_DIR="$(resolve_skills_dir "$EXTRACTED_DIR" "$VERSION")" || resolve_status=$?
-    if [ "$resolve_status" -eq 1 ] || [ -z "$SOURCE_SKILLS_DIR" ]; then
-        local available
-        available="$(find "$EXTRACTED_DIR" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | tr '\n' ' ')"
-        die "no v*/skills directory found in ${SOURCE_DIR:-$REF}. Available top-level entries: ${available}"
+    local content_dir="${EXTRACTED_DIR}/content"
+    if [ ! -d "${content_dir}/skills" ]; then
+        die "content/skills not found in ${SOURCE_DIR:-$REF}"
+    fi
+    SOURCE_SKILLS_DIR="${content_dir}/skills"
+    SOURCE_AGENTS_MD="${content_dir}/AGENTS.md"
+
+    # Store segment under ~/.agents/.jmix/skills/<seg>: keyed by major so multiple
+    # Jmix majors coexist on one machine. Derived from --version (matches Studio),
+    # falling back to the ref, then "content".
+    if [ -n "$VERSION" ]; then
+        RESOLVED_VERSION_DIR="v$(printf '%s' "$VERSION" | awk -F'[.-]' '{print $1}')"
+    elif [ -n "$REF" ] && [ "$REF" != "HEAD" ]; then
+        RESOLVED_VERSION_DIR="$REF"
+    else
+        RESOLVED_VERSION_DIR="content"
     fi
 
-    RESOLVED_VERSION_DIR="$(basename "$(dirname "$SOURCE_SKILLS_DIR")")"
-    SOURCE_AGENTS_MD="$(dirname "$SOURCE_SKILLS_DIR")/AGENTS.md"
     vlog "extracted dir: ${EXTRACTED_DIR}"
-    vlog "resolved version dir: ${RESOLVED_VERSION_DIR}"
+    vlog "store segment: ${RESOLVED_VERSION_DIR}"
     vlog "source skills dir: ${SOURCE_SKILLS_DIR}"
-
-    if [ "$resolve_status" -eq 2 ]; then
-        log "Version '${VERSION}' did not match any folder, falling back to latest available (${RESOLVED_VERSION_DIR})"
-    fi
     log "Using guidelines from ${SOURCE_SKILLS_DIR#"${EXTRACTED_DIR}"/}"
 
     TARBALL_READY=1

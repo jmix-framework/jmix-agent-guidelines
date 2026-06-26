@@ -27,8 +27,8 @@
     Optional subcommand. When omitted, the interactive wizard is started.
 
 .PARAMETER Version
-    Jmix version (e.g. 2, 2.8, 2.8.0). Optional. Best-matching folder is picked:
-    exact -> major.minor -> major -> latest.
+    Jmix version (e.g. 2, 2.8, 2.8.0). Optional. Selects the guidelines branch
+    (v<major>) to download and the store segment ~/.agents/.jmix/skills/v<major>.
 
 .PARAMETER Ref
     Git ref (branch or tag) to download. Default: HEAD (repo default branch).
@@ -242,85 +242,6 @@ function Resolve-AgentsCsv {
 # Tarball + version resolution
 # =================================================================
 
-function Get-VersionSortKey {
-    param([string]$Version)
-    $parts = $Version -split '[.-]'
-    $key = ''
-    for ($i = 0; $i -lt 5; $i++) {
-        $segment = if ($i -lt $parts.Length) { $parts[$i] } else { '0' }
-        $value = 0
-        [void][int]::TryParse($segment, [ref]$value)
-        $key += $value.ToString('00000')
-    }
-    return $key
-}
-
-function Find-LatestSkillsDir {
-    param([string]$ExtractedDir)
-    $bestKey = $null
-    $bestPath = $null
-    foreach ($dir in Get-ChildItem -Path $ExtractedDir -Directory) {
-        if (-not $dir.Name.StartsWith('v')) { continue }
-        $skillsPath = Join-Path $dir.FullName 'skills'
-        if (-not (Test-Path $skillsPath -PathType Container)) { continue }
-        $name = $dir.Name.Substring(1)
-        if ([string]::IsNullOrEmpty($name)) { continue }
-        $key = Get-VersionSortKey -Version $name
-        if ($null -eq $bestKey -or [string]::Compare($key, $bestKey) -gt 0) {
-            $bestKey = $key
-            $bestPath = $skillsPath
-        }
-    }
-    return $bestPath
-}
-
-function Resolve-SkillsDir {
-    param(
-        [string]$ExtractedDir,
-        [string]$Requested
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Requested)) {
-        $path = Find-LatestSkillsDir -ExtractedDir $ExtractedDir
-        if ($path) {
-            return [PSCustomObject]@{ Path = $path; Status = 'matched' }
-        }
-        return [PSCustomObject]@{ Path = $null; Status = 'none' }
-    }
-
-    $exact = Join-Path $ExtractedDir "v$Requested/skills"
-    if (Test-Path $exact -PathType Container) {
-        return [PSCustomObject]@{ Path = $exact; Status = 'matched' }
-    }
-
-    $parts = $Requested -split '[.-]'
-    if ($parts.Length -ge 2 -and $parts[0] -ne '' -and $parts[1] -ne '') {
-        $majorMinor = "$($parts[0]).$($parts[1])"
-        if ($majorMinor -ne $Requested) {
-            $candidate = Join-Path $ExtractedDir "v$majorMinor/skills"
-            if (Test-Path $candidate -PathType Container) {
-                return [PSCustomObject]@{ Path = $candidate; Status = 'matched' }
-            }
-        }
-    }
-
-    if ($parts.Length -ge 1 -and $parts[0] -ne '') {
-        $major = $parts[0]
-        if ($major -ne $Requested) {
-            $candidate = Join-Path $ExtractedDir "v$major/skills"
-            if (Test-Path $candidate -PathType Container) {
-                return [PSCustomObject]@{ Path = $candidate; Status = 'matched' }
-            }
-        }
-    }
-
-    $fallback = Find-LatestSkillsDir -ExtractedDir $ExtractedDir
-    if ($fallback) {
-        return [PSCustomObject]@{ Path = $fallback; Status = 'fallback' }
-    }
-    return [PSCustomObject]@{ Path = $null; Status = 'none' }
-}
-
 function Initialize-Tarball {
     if ($script:TarballReady) { return }
 
@@ -388,22 +309,26 @@ function Initialize-Tarball {
         }
     }
 
-    $resolved = Resolve-SkillsDir -ExtractedDir $script:ExtractedDir -Requested $Version
-    if ($resolved.Status -eq 'none' -or -not $resolved.Path) {
-        $available = (Get-ChildItem -Path $script:ExtractedDir -Directory | Select-Object -ExpandProperty Name) -join ' '
-        Write-ErrAndExit "no v*/skills directory found in $(if ($Source) { $Source } else { $Ref }). Available top-level entries: $available"
+    $contentDir = Join-Path $script:ExtractedDir 'content'
+    $script:SourceSkillsDir = Join-Path $contentDir 'skills'
+    if (-not (Test-Path $script:SourceSkillsDir -PathType Container)) {
+        Write-ErrAndExit "content/skills not found in $(if ($Source) { $Source } else { $Ref })"
+    }
+    $script:SourceAgentsMd = Join-Path $contentDir 'AGENTS.md'
+
+    # Store segment under ~/.agents/.jmix/skills/<seg>: keyed by major so multiple
+    # Jmix majors coexist. Derived from -Version (matches Studio), else the ref, else 'content'.
+    if ($Version) {
+        $script:ResolvedVersionDir = "v$(($Version -split '[.-]')[0])"
+    } elseif ($Ref -and $Ref -ne 'HEAD') {
+        $script:ResolvedVersionDir = $Ref
+    } else {
+        $script:ResolvedVersionDir = 'content'
     }
 
-    $script:SourceSkillsDir = $resolved.Path
-    $script:ResolvedVersionDir = Split-Path -Leaf (Split-Path -Parent $script:SourceSkillsDir)
-    $script:SourceAgentsMd = Join-Path (Split-Path -Parent $script:SourceSkillsDir) 'AGENTS.md'
     Write-Verbose "extracted dir: $($script:ExtractedDir)"
-    Write-Verbose "resolved version dir: $($script:ResolvedVersionDir)"
+    Write-Verbose "store segment: $($script:ResolvedVersionDir)"
     Write-Verbose "source skills dir: $($script:SourceSkillsDir)"
-
-    if ($resolved.Status -eq 'fallback') {
-        Write-Info "Version '$Version' did not match any folder, falling back to latest available ($($script:ResolvedVersionDir))"
-    }
     Write-Info "Using guidelines from $($script:SourceSkillsDir.Substring($script:ExtractedDir.Length + 1))"
 
     $script:TarballReady = $true
