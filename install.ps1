@@ -77,6 +77,10 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Whether -Ref was passed explicitly (vs its default). Captured at script scope
+# because $PSBoundParameters inside a function refers to that function's params.
+$script:RefExplicit = $PSBoundParameters.ContainsKey('Ref')
+
 $script:RepoOwner = 'jmix-framework'
 $script:RepoName  = 'jmix-agent-guidelines'
 
@@ -338,6 +342,13 @@ function Initialize-Tarball {
 
         $zipPath = Join-Path $script:Staging 'source.zip'
         Write-Verbose "staging: $($script:Staging)"
+
+        # Default the content ref to the version's branch (v<major>) when -Ref
+        # was not given, so downloaded content matches -Version.
+        if (-not $script:RefExplicit -and $Version) {
+            $major = ($Version -split '[.-]')[0]
+            if ($major) { $Ref = "v$major" }
+        }
 
         $refsToTry = if ($Ref -eq 'HEAD') { @('HEAD') } else { @($Ref, 'HEAD') }
         $downloaded = $false
