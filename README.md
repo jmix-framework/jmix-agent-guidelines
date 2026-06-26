@@ -28,7 +28,7 @@ installing skills, adding guidelines, registering the recommended MCP servers, a
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/v3/install.sh | bash
 ```
 
 > `HEAD` resolves to the repository default branch (the current stable major). To pin a specific major, use its branch, e.g. `.../jmix-agent-guidelines/v2/install.sh`.
@@ -36,19 +36,19 @@ curl -fsSL https://raw.githubusercontent.com/jmix-framework/jmix-agent-guideline
 **Windows (PowerShell 5+):**
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1 | Invoke-Expression
+Invoke-RestMethod https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/v3/install.ps1 | Invoke-Expression
 ```
 
 If PowerShell blocks the script because of its execution policy, run it explicitly with the policy bypassed:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1' | Invoke-Expression"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/v3/install.ps1' | Invoke-Expression"
 ```
 
 If `powershell.exe` itself is blocked by a corporate policy (`CreateProcess error=5, Access is denied`), use PowerShell 7 (`pwsh`):
 
 ```powershell
-pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/HEAD/install.ps1' | Invoke-Expression"
+pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-RestMethod 'https://raw.githubusercontent.com/jmix-framework/jmix-agent-guidelines/v3/install.ps1' | Invoke-Expression"
 ```
 
 > In Jmix Studio plugin, the same wizard is available from the **Jmix AI Agents Toolkit** action.
@@ -72,16 +72,16 @@ PowerShell mirrors the same shape: `install.ps1 skills -Agents claude,codex`, `i
 
 ### Flags
 
-| Flag (bash)               | Flag (PowerShell)      | Default | Meaning                                                                                                                                                                       |
-|:--------------------------|:-----------------------|:--------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--version V`             | `-Version V`           | -       | Jmix version (e.g. `2.8.0`). Selects the guidelines branch `v<major>` to download and the store segment `~/.agents/.jmix/skills/v<major>`.                                     |
+| Flag (bash)               | Flag (PowerShell)      | Default          | Meaning                                                                                                                                                                                                                   |
+|:--------------------------|:-----------------------|:-----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--version V`             | `-Version V`           | -                | Jmix version (e.g. `2.8.0`). Selects the guidelines branch `v<major>` to download and the store segment `~/.agents/.jmix/skills/v<major>`.                                                                                |
 | `--ref REF`               | `-Ref REF`             | from `--version` | Git ref (branch or tag) to download. When omitted, defaults to the version's branch `v<major>` derived from `--version`, falling back to `HEAD` (repo default branch) when no version is given or that branch is missing. |
-| `--source DIR`            | `-Source DIR`          | -       | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                              |
-| `--agents CSV`            | `-Agents CSV`          | -       | Comma-separated agents. Required by every subcommand.                                                                                                                         |
-| `--scope global\|local`   | `-Scope global\|local` | global  | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store. |
-| `--context7-key K`        | `-Context7Key K`       | prompt  | Context7 API key. Prompted interactively when omitted.                                                                                                                        |
-| `--backup-existing-files` | `-BackupExistingFiles` | off     | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                           |
-| `--verbose`, `--debug`    | `-Verbose`             | off     | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                  |
+| `--source DIR`            | `-Source DIR`          | -                | Install from a local checkout of this repository instead of downloading. Skips the network and overrides `--ref`. Mainly for CI and offline use.                                                                          |
+| `--agents CSV`            | `-Agents CSV`          | -                | Comma-separated agents. Required by every subcommand.                                                                                                                                                                     |
+| `--scope global\|local`   | `-Scope global\|local` | global           | `skills` only. `global` installs the store under `~/.agents/.jmix/skills/v<major>`; `local` installs the store at `<project>/.skills`. Agent dirs are symlinked to the store.                                             |
+| `--context7-key K`        | `-Context7Key K`       | prompt           | Context7 API key. Prompted interactively when omitted.                                                                                                                                                                    |
+| `--backup-existing-files` | `-BackupExistingFiles` | off              | Rename overwritten files/dirs to `<name>.bak-<timestamp>` instead of deleting them. Off by default.                                                                                                                       |
+| `--verbose`, `--debug`    | `-Verbose`             | off              | Print extra diagnostic output (OS, PATH, resolved paths, tool versions) for troubleshooting.                                                                                                                              |
 
 **Skills storages:**
 - **Global:** store at `~/.agents/.jmix/skills/v<major>/` (e.g. `v2`); each `jmix-*` folder symlinked into `~/.claude/skills` (Claude CLI), `~/.agents/skills` (Codex, OpenCode), `~/.junie/skills` (Junie).
