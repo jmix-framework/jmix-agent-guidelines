@@ -28,6 +28,7 @@ TARBALL_READY=0
 
 VERSION=""
 REF="HEAD"
+REF_EXPLICIT=0
 SOURCE_DIR=""
 BACKUP_EXISTING=0
 VERBOSE=0
@@ -334,6 +335,15 @@ ensure_tarball() {
 
         local tarball_path="${STAGING}/source.tar.gz"
         vlog "staging dir: ${STAGING}"
+
+        # Default the content ref to the version's branch (v<major>) when --ref
+        # was not given, so the downloaded content matches --version.
+        if [ "$REF_EXPLICIT" -eq 0 ] && [ -n "$VERSION" ]; then
+            local derived_major
+            derived_major="$(printf '%s' "$VERSION" | awk -F'[.-]' '{print $1}')"
+            [ -n "$derived_major" ] && REF="v${derived_major}"
+        fi
+
         vlog "requested version: '${VERSION}', ref: '${REF}'"
 
         local tarball_url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REF}"
@@ -504,7 +514,7 @@ cmd_skills() {
                 VERSION="$2"; shift 2 ;;
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; shift 2 ;;
+                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
@@ -611,7 +621,7 @@ cmd_agents_md() {
                 VERSION="$2"; shift 2 ;;
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; shift 2 ;;
+                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
@@ -988,7 +998,7 @@ cmd_wizard() {
                 VERSION="$2"; shift 2 ;;
             --ref)
                 [ $# -ge 2 ] || die "--ref requires an argument"
-                REF="$2"; shift 2 ;;
+                REF="$2"; REF_EXPLICIT=1; shift 2 ;;
             --source)
                 [ $# -ge 2 ] || die "--source requires an argument"
                 SOURCE_DIR="$2"; shift 2 ;;
